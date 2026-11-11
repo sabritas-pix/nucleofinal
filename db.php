@@ -230,7 +230,7 @@ try {
             $stmt->execute([
                 $adminUid,
                 'Cobranza y Control Financiero',
-                'Control de recibos fraccionados, registro de pagos SPEI y seguimiento de pólizas en mora.',
+                'Control de recibos fraccionados, registro de pagos SPEI y seguimiento de pólizas con pagos vencidos.',
                 '#0284c7',
                 'Valeria Pacheco',
                 'valeria.pacheco@seguros.com',

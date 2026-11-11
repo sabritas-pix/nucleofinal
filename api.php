@@ -40,13 +40,11 @@ if (!$user_id) {
         $u_row = $stmt_u->fetch();
         if ($u_row) {
             $user_id = $u_row['id'];
-            $_SESSION['user_id'] = $user_id;
         } else {
             // Crear usuario administrador por defecto si no hay ninguno
             $hash = password_hash('admin123', PASSWORD_BCRYPT);
             $pdo->exec("INSERT INTO usuarios (fullname, company, email, password) VALUES ('Agente Principal', 'Núcleo Seguros', 'admin@nucleo.com', '$hash')");
             $user_id = $pdo->lastInsertId();
-            $_SESSION['user_id'] = $user_id;
         }
     } catch (Exception $e) {}
 }
@@ -85,9 +83,15 @@ if ($action === 'get_dashboard_analytics' || $action === 'get_summary') {
         $filtro_periodo = trim($requestData['periodo'] ?? '');
         $fecha_inicio = trim($requestData['fecha_inicio'] ?? '');
         $fecha_fin = trim($requestData['fecha_fin'] ?? '');
+        $filtro_moneda = strtoupper(trim($requestData['moneda'] ?? ''));
 
         $where_clauses = ["1=1"];
         $params = [];
+
+        if (in_array($filtro_moneda, ['MXN', 'USD', 'UDI'])) {
+            $where_clauses[] = "p.moneda = :moneda";
+            $params[':moneda'] = $filtro_moneda;
+        }
 
         if (!empty($filtro_agente) && $filtro_agente !== 'todos') {
             if (is_numeric($filtro_agente)) {
@@ -143,10 +147,119 @@ if ($action === 'get_dashboard_analytics' || $action === 'get_summary') {
         $stmt_kpi->execute($params);
         $kpi = $stmt_kpi->fetch(PDO::FETCH_ASSOC);
 
+        // Desglose de cobranza por moneda (MXN, USD, UDI)
+        $sql_kpi_mon = "
+            SELECT 
+                COALESCE(NULLIF(p.moneda, ''), 'MXN') AS moneda,
+                COALESCE(SUM(CASE WHEN c.estado = 'pendiente' THEN c.monto ELSE 0 END), 0) AS pendiente_monto,
+                COALESCE(SUM(CASE WHEN c.estado = 'pendiente' THEN 1 ELSE 0 END), 0) AS pendiente_cant,
+                COALESCE(SUM(CASE WHEN c.estado = 'realizada' THEN c.monto ELSE 0 END), 0) AS realizada_monto,
+                COALESCE(SUM(CASE WHEN c.estado = 'realizada' THEN 1 ELSE 0 END), 0) AS realizada_cant,
+                COALESCE(SUM(CASE WHEN c.estado = 'vencida' THEN c.monto ELSE 0 END), 0) AS vencida_monto,
+                COALESCE(SUM(CASE WHEN c.estado = 'vencida' THEN 1 ELSE 0 END), 0) AS vencida_cant
+            FROM cobranzas c
+            JOIN polizas p ON c.poliza_id = p.id
+            WHERE $where_sql
+            GROUP BY COALESCE(NULLIF(p.moneda, ''), 'MXN')
+        ";
+        $stmt_kpi_mon = $pdo->prepare($sql_kpi_mon);
+        $stmt_kpi_mon->execute($params);
+        $por_moneda = [];
+        foreach ($stmt_kpi_mon->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $por_moneda[$row['moneda']] = [
+                'pendiente' => ['monto' => floatval($row['pendiente_monto']), 'cantidad' => intval($row['pendiente_cant'])],
+                'realizada' => ['monto' => floatval($row['realizada_monto']), 'cantidad' => intval($row['realizada_cant'])],
+                'vencida' => ['monto' => floatval($row['vencida_monto']), 'cantidad' => intval($row['vencida_cant'])]
+            ];
+        }
+
+        // Resumen detallado por Divisa: Ventas de Pólizas y Cobranza (MXN, USD, UDIS)
+        $divisas = ['MXN', 'USD', 'UDI'];
+        $resumen_divisas = [];
+        foreach ($divisas as $div) {
+            $resumen_divisas[$div] = [
+                'moneda' => $div,
+                'total_polizas' => 0,
+                'polizas_activas' => 0,
+                'polizas_vencidas' => 0,
+                'total_vendido' => 0.0,
+                'realizada_monto' => 0.0,
+                'realizada_cant' => 0,
+                'pendiente_monto' => 0.0,
+                'pendiente_cant' => 0,
+                'vencida_monto' => 0.0,
+                'vencida_cant' => 0,
+                'total_cobranza' => 0.0,
+                'eficiencia' => 0.0
+            ];
+        }
+
+        // Ventas y cantidad de pólizas por divisa
+        $sql_ventas_mon = "
+            SELECT 
+                COALESCE(NULLIF(p.moneda, ''), 'MXN') AS moneda,
+                COUNT(p.id) AS total_polizas,
+                SUM(CASE WHEN p.estado_poliza = 'activa' THEN 1 ELSE 0 END) AS polizas_activas,
+                SUM(CASE WHEN p.estado_poliza = 'vencida' THEN 1 ELSE 0 END) AS polizas_vencidas,
+                COALESCE(SUM(p.prima_total), 0) AS total_vendido
+            FROM polizas p
+            GROUP BY COALESCE(NULLIF(p.moneda, ''), 'MXN')
+        ";
+        $stmt_vm = $pdo->query($sql_ventas_mon);
+        foreach ($stmt_vm->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $m = strtoupper($r['moneda']);
+            if (isset($resumen_divisas[$m])) {
+                $resumen_divisas[$m]['total_polizas'] = intval($r['total_polizas']);
+                $resumen_divisas[$m]['polizas_activas'] = intval($r['polizas_activas']);
+                $resumen_divisas[$m]['polizas_vencidas'] = intval($r['polizas_vencidas']);
+                $resumen_divisas[$m]['total_vendido'] = floatval($r['total_vendido']);
+            }
+        }
+
+        // Cobranza desglosada por divisa (cobrado, pendiente, vencido)
+        $sql_cob_mon = "
+            SELECT 
+                COALESCE(NULLIF(p.moneda, ''), 'MXN') AS moneda,
+                COALESCE(SUM(CASE WHEN c.estado = 'realizada' THEN c.monto ELSE 0 END), 0) AS realizada_monto,
+                COALESCE(SUM(CASE WHEN c.estado = 'realizada' THEN 1 ELSE 0 END), 0) AS realizada_cant,
+                COALESCE(SUM(CASE WHEN c.estado = 'pendiente' THEN c.monto ELSE 0 END), 0) AS pendiente_monto,
+                COALESCE(SUM(CASE WHEN c.estado = 'pendiente' THEN 1 ELSE 0 END), 0) AS pendiente_cant,
+                COALESCE(SUM(CASE WHEN c.estado = 'vencida' THEN c.monto ELSE 0 END), 0) AS vencida_monto,
+                COALESCE(SUM(CASE WHEN c.estado = 'vencida' THEN 1 ELSE 0 END), 0) AS vencida_cant,
+                COALESCE(SUM(c.monto), 0) AS total_cobranza
+            FROM cobranzas c
+            JOIN polizas p ON c.poliza_id = p.id
+            GROUP BY COALESCE(NULLIF(p.moneda, ''), 'MXN')
+        ";
+        $stmt_cm = $pdo->query($sql_cob_mon);
+        foreach ($stmt_cm->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $m = strtoupper($r['moneda']);
+            if (isset($resumen_divisas[$m])) {
+                $resumen_divisas[$m]['realizada_monto'] = floatval($r['realizada_monto']);
+                $resumen_divisas[$m]['realizada_cant'] = intval($r['realizada_cant']);
+                $resumen_divisas[$m]['pendiente_monto'] = floatval($r['pendiente_monto']);
+                $resumen_divisas[$m]['pendiente_cant'] = intval($r['pendiente_cant']);
+                $resumen_divisas[$m]['vencida_monto'] = floatval($r['vencida_monto']);
+                $resumen_divisas[$m]['vencida_cant'] = intval($r['vencida_cant']);
+                $resumen_divisas[$m]['total_cobranza'] = floatval($r['total_cobranza']);
+                $tot = floatval($r['total_cobranza']);
+                $cob = floatval($r['realizada_monto']);
+                $resumen_divisas[$m]['eficiencia'] = $tot > 0 ? round(($cob / $tot) * 100, 1) : 0;
+            }
+        }
+
         // Métricas Totales de Pólizas y Clientes
-        $total_polizas = $pdo->query("SELECT COUNT(*) FROM polizas")->fetchColumn();
-        $polizas_activas = $pdo->query("SELECT COUNT(*) FROM polizas WHERE estado_poliza = 'activa'")->fetchColumn();
-        $polizas_vencidas = $pdo->query("SELECT COUNT(*) FROM polizas WHERE estado_poliza = 'vencida'")->fetchColumn();
+        if (in_array($filtro_moneda, ['MXN', 'USD', 'UDI'])) {
+            $total_polizas = $resumen_divisas[$filtro_moneda]['total_polizas'];
+            $polizas_activas = $resumen_divisas[$filtro_moneda]['polizas_activas'];
+            $polizas_vencidas = $resumen_divisas[$filtro_moneda]['polizas_vencidas'];
+            $total_vendido = $resumen_divisas[$filtro_moneda]['total_vendido'];
+        } else {
+            $total_polizas = $pdo->query("SELECT COUNT(*) FROM polizas")->fetchColumn();
+            $polizas_activas = $pdo->query("SELECT COUNT(*) FROM polizas WHERE estado_poliza = 'activa'")->fetchColumn();
+            $polizas_vencidas = $pdo->query("SELECT COUNT(*) FROM polizas WHERE estado_poliza = 'vencida'")->fetchColumn();
+            $total_vendido = 0;
+        }
         $total_clientes = $pdo->query("SELECT COUNT(*) FROM clientes")->fetchColumn();
         $total_documentos = $pdo->query("SELECT COUNT(*) FROM documentos")->fetchColumn();
 
@@ -216,9 +329,13 @@ if ($action === 'get_dashboard_analytics' || $action === 'get_summary') {
         $stmt_list_u = $pdo->query("SELECT id, fullname, company, email FROM usuarios ORDER BY fullname ASC");
         $lista_agentes = $stmt_list_u->fetchAll(PDO::FETCH_ASSOC);
 
-        // Lista de Aseguradoras encontradas
-        $stmt_list_aseg = $pdo->query("SELECT DISTINCT aseguradora FROM polizas WHERE aseguradora != '' ORDER BY aseguradora ASC");
+        // Lista de Aseguradoras encontradas (catálogo y pólizas)
+        $stmt_list_aseg = $pdo->query("SELECT nombre FROM aseguradoras WHERE activo = 1 ORDER BY nombre ASC");
         $lista_aseguradoras = $stmt_list_aseg->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($lista_aseguradoras)) {
+            $stmt_list_aseg = $pdo->query("SELECT DISTINCT aseguradora FROM polizas WHERE aseguradora != '' ORDER BY aseguradora ASC");
+            $lista_aseguradoras = $stmt_list_aseg->fetchAll(PDO::FETCH_COLUMN);
+        }
 
         // Recibos próximos o vencidos urgentes (Alertas de Cobranza)
         // Regla: Recordatorios de pago 1 semana antes (<= 7 días) y el día que debe pagar (0 días)
@@ -280,6 +397,7 @@ if ($action === 'get_dashboard_analytics' || $action === 'get_summary') {
                     'cantidad' => intval($kpi['vencida_cant'])
                 ],
                 'total_monto' => $total_general,
+                'total_vendido' => floatval($total_vendido),
                 'total_recibos' => intval($kpi['total_recibos']),
                 'eficiencia_porcentaje' => $eficiencia,
                 'ticket_promedio' => $ticket_promedio,
@@ -289,6 +407,8 @@ if ($action === 'get_dashboard_analytics' || $action === 'get_summary') {
                 'total_clientes' => intval($total_clientes),
                 'total_documentos' => intval($total_documentos)
             ],
+            'por_moneda' => $por_moneda,
+            'resumen_divisas' => $resumen_divisas,
             'cobranza_por_ramo' => $ramos_metrics,
             'cobranza_por_aseguradora' => $aseguradoras_metrics,
             'cobranza_por_agente' => $agentes_metrics,
@@ -315,9 +435,15 @@ if ($action === 'get_polizas') {
         $aseguradora = trim($requestData['aseguradora'] ?? '');
         $cliente_id = trim($requestData['cliente_id'] ?? '');
         $agente_id = trim($requestData['agente_id'] ?? '');
+        $moneda_pol = strtoupper(trim($requestData['moneda'] ?? ''));
 
         $where = ["1=1"];
         $params = [];
+
+        if (in_array($moneda_pol, ['MXN', 'USD', 'UDI'])) {
+            $where[] = "p.moneda = :moneda_pol";
+            $params[':moneda_pol'] = $moneda_pol;
+        }
 
         if (!empty($q)) {
             $where[] = "(p.numero_poliza LIKE :q OR cl.nombre LIKE :q OR p.aseguradora LIKE :q)";
@@ -500,7 +626,10 @@ if ($action === 'save_poliza') {
         $derecho_poliza = floatval($requestData['derecho_poliza'] ?? 0);
         $iva = floatval($requestData['iva'] ?? 0);
         $prima_total = floatval($requestData['prima_total'] ?? 0);
-        $moneda = trim($requestData['moneda'] ?? 'MXN');
+        $moneda = strtoupper(trim($requestData['moneda'] ?? 'MXN'));
+        if (!in_array($moneda, ['MXN', 'USD', 'UDI'])) {
+            $moneda = 'MXN';
+        }
         $descripcion_cobertura = trim($requestData['descripcion_cobertura'] ?? '');
         $estado_poliza = trim($requestData['estado_poliza'] ?? 'activa');
 
@@ -628,6 +757,17 @@ if ($action === 'save_poliza') {
                 $interval_months = 1;
             }
 
+            // Obtener días límite de pago de la aseguradora (ej. 15, 30 días)
+            $diasPagoAseg = 30;
+            if (!empty($aseguradora)) {
+                $stmtDias = $pdo->prepare("SELECT dias_pago FROM aseguradoras WHERE nombre = :aseg LIMIT 1");
+                $stmtDias->execute([':aseg' => $aseguradora]);
+                $diasFound = $stmtDias->fetchColumn();
+                if ($diasFound && intval($diasFound) > 0) {
+                    $diasPagoAseg = intval($diasFound);
+                }
+            }
+
             $monto_cuota = round($prima_total / $num_cuotas, 2);
             $startDate = new DateTime($vigencia_desde);
 
@@ -648,9 +788,9 @@ if ($action === 'save_poliza') {
                 }
                 $f_inicio_cuota = $recibo_date->format('Y-m-d');
 
-                // Fecha límite de pago normalmente es un mes después
+                // Fecha límite de pago según los días configurados para la aseguradora
                 $limite_date = clone $recibo_date;
-                $limite_date->modify('+1 month');
+                $limite_date->modify('+' . $diasPagoAseg . ' days');
                 $f_limite = $limite_date->format('Y-m-d');
 
                 $num_rec = "$i/$num_cuotas";
@@ -815,6 +955,17 @@ if ($action === 'renovar_poliza') {
         elseif ($periodicidad === 'Trimestral') { $num_cuotas = 4; $interval_months = 3; }
         elseif ($periodicidad === 'Mensual') { $num_cuotas = 12; $interval_months = 1; }
 
+        // Días de pago de la aseguradora
+        $diasPagoAseg = 30;
+        if (!empty($aseguradora)) {
+            $stmtDias = $pdo->prepare("SELECT dias_pago FROM aseguradoras WHERE nombre = :aseg LIMIT 1");
+            $stmtDias->execute([':aseg' => $aseguradora]);
+            $diasFound = $stmtDias->fetchColumn();
+            if ($diasFound && intval($diasFound) > 0) {
+                $diasPagoAseg = intval($diasFound);
+            }
+        }
+
         $monto_cuota = round($prima_total / $num_cuotas, 2);
         $startDate = new DateTime($nueva_vigencia_desde);
 
@@ -835,7 +986,7 @@ if ($action === 'renovar_poliza') {
             }
             $f_inicio_cuota = $recibo_date->format('Y-m-d');
             $limite_date = clone $recibo_date;
-            $limite_date->modify('+1 month');
+            $limite_date->modify('+' . $diasPagoAseg . ' days');
             $f_limite = $limite_date->format('Y-m-d');
             $num_rec = "$i/$num_cuotas";
             $est_rec = (strtotime($f_limite) < strtotime(date('Y-m-d'))) ? 'vencida' : 'pendiente';
@@ -928,9 +1079,15 @@ if ($action === 'get_cobranzas') {
         $fecha_inicio = trim($requestData['fecha_inicio'] ?? '');
         $fecha_fin = trim($requestData['fecha_fin'] ?? '');
         $q = trim($requestData['q'] ?? '');
+        $moneda_filtro = strtoupper(trim($requestData['moneda'] ?? ''));
 
         $where = ["1=1"];
         $params = [];
+
+        if (in_array($moneda_filtro, ['MXN', 'USD', 'UDI'])) {
+            $where[] = "p.moneda = :moneda_filtro";
+            $params[':moneda_filtro'] = $moneda_filtro;
+        }
 
         if (!empty($estado) && $estado !== 'todos') {
             $where[] = "c.estado = :estado";
@@ -979,6 +1136,7 @@ if ($action === 'get_cobranzas') {
                 p.ramo,
                 p.forma_pago,
                 p.periodicidad,
+                p.moneda,
                 cl.id AS cliente_id,
                 cl.nombre AS cliente_nombre,
                 cl.telefono AS cliente_telefono,
@@ -1555,14 +1713,276 @@ if ($action === 'delete_documento') {
 
 
 // ==========================================================================
-// 6. LISTA DE AGENTES / PRODUCTORES
+// 6. GESTIÓN DE AGENTES ENCARGADOS DE PÓLIZAS
 // ==========================================================================
 if ($action === 'get_agentes') {
     try {
-        $stmt = $pdo->query("SELECT id, fullname, company, email FROM usuarios ORDER BY fullname ASC");
+        $stmt = $pdo->query("
+            SELECT 
+                u.id, 
+                u.fullname, 
+                u.company, 
+                u.email, 
+                u.telefono, 
+                u.rfc, 
+                u.created_at,
+                (SELECT COUNT(*) FROM polizas p WHERE p.usuario_id = u.id) AS total_polizas,
+                (SELECT COUNT(*) FROM polizas p WHERE p.usuario_id = u.id AND p.estado_poliza = 'activa') AS polizas_activas,
+                (SELECT COALESCE(SUM(p.prima_total), 0) FROM polizas p WHERE p.usuario_id = u.id) AS total_vendido
+            FROM usuarios u 
+            ORDER BY u.fullname ASC
+        ");
         echo json_encode(['success' => true, 'agentes' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => 'Error al obtener agentes: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'save_agente') {
+    try {
+        $id = intval($requestData['id'] ?? 0);
+        $fullname = trim($requestData['fullname'] ?? '');
+        $email = trim($requestData['email'] ?? '');
+        $company = trim($requestData['company'] ?? 'Agencia Núcleo');
+        $telefono = trim($requestData['telefono'] ?? '');
+        $rfc = strtoupper(trim($requestData['rfc'] ?? ''));
+        $password = trim($requestData['password'] ?? '');
+
+        if (empty($fullname)) {
+            echo json_encode(['success' => false, 'message' => 'Ingresa el nombre completo del agente.']);
+            exit;
+        }
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'Ingresa un correo electrónico válido.']);
+            exit;
+        }
+
+        // Verificar si correo ya existe en otro usuario
+        $stmtCheck = $pdo->prepare("SELECT id FROM usuarios WHERE email = :email AND id != :id LIMIT 1");
+        $stmtCheck->execute([':email' => $email, ':id' => $id]);
+        if ($stmtCheck->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Ya existe un agente registrado con este correo electrónico.']);
+            exit;
+        }
+
+        if ($id > 0) {
+            // Actualización
+            if (!empty($password)) {
+                $hash = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("
+                    UPDATE usuarios SET 
+                        fullname = :fullname, 
+                        company = :company, 
+                        email = :email, 
+                        telefono = :telefono, 
+                        rfc = :rfc,
+                        password = :password
+                    WHERE id = :id
+                ");
+                $stmt->execute([
+                    ':fullname' => $fullname,
+                    ':company' => $company,
+                    ':email' => $email,
+                    ':telefono' => $telefono,
+                    ':rfc' => $rfc,
+                    ':password' => $hash,
+                    ':id' => $id
+                ]);
+            } else {
+                $stmt = $pdo->prepare("
+                    UPDATE usuarios SET 
+                        fullname = :fullname, 
+                        company = :company, 
+                        email = :email, 
+                        telefono = :telefono, 
+                        rfc = :rfc
+                    WHERE id = :id
+                ");
+                $stmt->execute([
+                    ':fullname' => $fullname,
+                    ':company' => $company,
+                    ':email' => $email,
+                    ':telefono' => $telefono,
+                    ':rfc' => $rfc,
+                    ':id' => $id
+                ]);
+            }
+            $msg = 'Agente actualizado exitosamente.';
+        } else {
+            // Creación
+            $hash = password_hash(!empty($password) ? $password : 'nucleo123', PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("
+                INSERT INTO usuarios (fullname, company, email, telefono, rfc, password)
+                VALUES (:fullname, :company, :email, :telefono, :rfc, :password)
+            ");
+            $stmt->execute([
+                ':fullname' => $fullname,
+                ':company' => $company,
+                ':email' => $email,
+                ':telefono' => $telefono,
+                ':rfc' => $rfc,
+                ':password' => $hash
+            ]);
+            $msg = 'Agente registrado exitosamente.';
+        }
+
+        echo json_encode(['success' => true, 'message' => $msg]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al guardar agente: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'delete_agente') {
+    try {
+        $id = intval($requestData['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de agente inválido.']);
+            exit;
+        }
+
+        // Proteger el agente principal o usuario actual
+        if ($id === 1) {
+            echo json_encode(['success' => false, 'message' => 'No es posible eliminar al Administrador Principal del sistema.']);
+            exit;
+        }
+
+        // Validar si tiene pólizas asignadas
+        $countPols = $pdo->prepare("SELECT COUNT(*) FROM polizas WHERE usuario_id = :id");
+        $countPols->execute([':id' => $id]);
+        $totalPols = intval($countPols->fetchColumn());
+
+        if ($totalPols > 0) {
+            echo json_encode([
+                'success' => false, 
+                'message' => "No se puede eliminar este agente porque tiene {$totalPols} póliza(s) asignadas. Reasigna las pólizas a otro agente antes de eliminarlo."
+            ]);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM usuarios WHERE id = :id");
+        $stmt->execute([':id' => $id]);
+        echo json_encode(['success' => true, 'message' => 'Agente eliminado correctamente.']);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al eliminar agente: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ==========================================================================
+// 6.1 GESTIÓN DE ASEGURADORAS
+// ==========================================================================
+if ($action === 'get_aseguradoras') {
+    try {
+        $stmt = $pdo->query("
+            SELECT 
+                a.*,
+                (SELECT COUNT(*) FROM polizas p WHERE p.aseguradora = a.nombre) AS total_polizas,
+                (SELECT COUNT(*) FROM polizas p WHERE p.aseguradora = a.nombre AND p.estado_poliza = 'activa') AS polizas_activas
+            FROM aseguradoras a
+            ORDER BY a.nombre ASC
+        ");
+        echo json_encode(['success' => true, 'aseguradoras' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al obtener aseguradoras: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'save_aseguradora') {
+    try {
+        $id = intval($requestData['id'] ?? 0);
+        $nombre = trim($requestData['nombre'] ?? '');
+        $dias_pago = intval($requestData['dias_pago'] ?? 30);
+        if ($dias_pago <= 0) $dias_pago = 30;
+
+        if (empty($nombre)) {
+            echo json_encode(['success' => false, 'message' => 'Ingresa el nombre de la compañía aseguradora.']);
+            exit;
+        }
+
+        // Validar duplicado de nombre
+        $stmtCheck = $pdo->prepare("SELECT id FROM aseguradoras WHERE LOWER(nombre) = LOWER(:nombre) AND id != :id LIMIT 1");
+        $stmtCheck->execute([':nombre' => $nombre, ':id' => $id]);
+        if ($stmtCheck->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Ya existe una aseguradora registrada con ese nombre.']);
+            exit;
+        }
+
+        if ($id > 0) {
+            // Obtener nombre anterior para actualizar pólizas si cambió
+            $oldName = $pdo->prepare("SELECT nombre FROM aseguradoras WHERE id = :id");
+            $oldName->execute([':id' => $id]);
+            $antiguoNombre = $oldName->fetchColumn();
+
+            $stmt = $pdo->prepare("
+                UPDATE aseguradoras SET 
+                    nombre = :nombre,
+                    dias_pago = :dias_pago
+                WHERE id = :id
+            ");
+            $stmt->execute([
+                ':nombre' => $nombre,
+                ':dias_pago' => $dias_pago,
+                ':id' => $id
+            ]);
+
+            if ($antiguoNombre && $antiguoNombre !== $nombre) {
+                $updPols = $pdo->prepare("UPDATE polizas SET aseguradora = :nuevo WHERE aseguradora = :viejo");
+                $updPols->execute([':nuevo' => $nombre, ':viejo' => $antiguoNombre]);
+            }
+
+            $msg = 'Aseguradora actualizada exitosamente.';
+        } else {
+            $stmt = $pdo->prepare("
+                INSERT INTO aseguradoras (nombre, dias_pago)
+                VALUES (:nombre, :dias_pago)
+            ");
+            $stmt->execute([
+                ':nombre' => $nombre,
+                ':dias_pago' => $dias_pago
+            ]);
+            $msg = 'Aseguradora agregada al catálogo exitosamente.';
+        }
+
+        echo json_encode(['success' => true, 'message' => $msg]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al guardar aseguradora: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'delete_aseguradora') {
+    try {
+        $id = intval($requestData['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de aseguradora inválido.']);
+            exit;
+        }
+
+        $stmtName = $pdo->prepare("SELECT nombre FROM aseguradoras WHERE id = :id");
+        $stmtName->execute([':id' => $id]);
+        $nombreAseg = $stmtName->fetchColumn();
+
+        if ($nombreAseg) {
+            $checkPols = $pdo->prepare("SELECT COUNT(*) FROM polizas WHERE aseguradora = :nom");
+            $checkPols->execute([':nom' => $nombreAseg]);
+            $count = intval($checkPols->fetchColumn());
+            if ($count > 0) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => "No se puede eliminar la aseguradora '{$nombreAseg}' porque tiene {$count} póliza(s) asociadas en la cartera."
+                ]);
+                exit;
+            }
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM aseguradoras WHERE id = :id");
+        $stmt->execute([':id' => $id]);
+        echo json_encode(['success' => true, 'message' => 'Aseguradora eliminada del catálogo.']);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al eliminar aseguradora: ' . $e->getMessage()]);
     }
     exit;
 }
@@ -1961,7 +2381,10 @@ if ($action === 'save_empresa_settings') {
         $email = strtolower(trim($requestData['email'] ?? ''));
         $rfc = strtoupper(trim($requestData['rfc'] ?? ''));
         $telefono = trim($requestData['telefono'] ?? '');
-        $moneda = trim($requestData['moneda'] ?? 'MXN');
+        $moneda = strtoupper(trim($requestData['moneda'] ?? 'MXN'));
+        if (!in_array($moneda, ['MXN', 'USD', 'UDI'])) {
+            $moneda = 'MXN';
+        }
 
         if (empty($company)) {
             echo json_encode(['success' => false, 'message' => 'Ingresa el nombre de la empresa / agencia.']);
@@ -2246,6 +2669,403 @@ if ($action === 'delete_tarea') {
         echo json_encode(['success' => true, 'message' => 'Tarea eliminada del calendario.']);
     } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => 'Error al eliminar tarea: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ==========================================================================
+// 10. MÓDULO DE TRÁMITES Y OPERACIONES (KANBAN MULTI-USUARIO)
+// ==========================================================================
+if ($action === 'get_tramites') {
+    try {
+        $q = trim($requestData['q'] ?? '');
+        $estado = trim($requestData['estado'] ?? '');
+        $prioridad = trim($requestData['prioridad'] ?? '');
+        $cliente_id = intval($requestData['cliente_id'] ?? 0);
+        $poliza_id = intval($requestData['poliza_id'] ?? 0);
+
+        $where = ["1=1"];
+        $params = [];
+
+        if (!empty($estado) && in_array($estado, ['pendiente', 'proceso', 'terminado'])) {
+            $where[] = "t.estado = :estado";
+            $params[':estado'] = $estado;
+        }
+
+        if (!empty($prioridad) && in_array($prioridad, ['baja', 'media', 'alta', 'urgente'])) {
+            $where[] = "t.prioridad = :prioridad";
+            $params[':prioridad'] = $prioridad;
+        }
+
+        if ($cliente_id > 0) {
+            $where[] = "t.cliente_id = :cliente_id";
+            $params[':cliente_id'] = $cliente_id;
+        }
+
+        if ($poliza_id > 0) {
+            $where[] = "t.poliza_id = :poliza_id";
+            $params[':poliza_id'] = $poliza_id;
+        }
+
+        if (!empty($q)) {
+            $where[] = "(t.titulo LIKE :q OR t.tipo_tramite LIKE :q OR t.descripcion LIKE :q OR cl.nombre LIKE :q OR p.numero_poliza LIKE :q OR p.aseguradora LIKE :q)";
+            $params[':q'] = "%$q%";
+        }
+
+        $where_sql = implode(" AND ", $where);
+
+        $sql = "
+            SELECT 
+                t.*,
+                cl.nombre AS cliente_nombre,
+                cl.telefono AS cliente_telefono,
+                cl.whatsapp AS cliente_whatsapp,
+                cl.email AS cliente_email,
+                p.numero_poliza,
+                p.aseguradora,
+                p.ramo,
+                p.moneda,
+                COALESCE(u.fullname, 'Equipo Núcleo') AS responsable_nombre,
+                (SELECT COUNT(*) FROM tramite_comentarios tc WHERE tc.tramite_id = t.id) AS total_comentarios,
+                (SELECT tc.comentario FROM tramite_comentarios tc WHERE tc.tramite_id = t.id ORDER BY tc.id DESC LIMIT 1) AS ultimo_comentario,
+                (SELECT tc.autor_nombre FROM tramite_comentarios tc WHERE tc.tramite_id = t.id ORDER BY tc.id DESC LIMIT 1) AS ultimo_comentario_autor,
+                (SELECT tc.created_at FROM tramite_comentarios tc WHERE tc.tramite_id = t.id ORDER BY tc.id DESC LIMIT 1) AS ultimo_comentario_fecha
+            FROM tramites t
+            JOIN clientes cl ON t.cliente_id = cl.id
+            LEFT JOIN polizas p ON t.poliza_id = p.id
+            LEFT JOIN usuarios u ON t.usuario_id = u.id
+            WHERE $where_sql
+            ORDER BY 
+                CASE t.prioridad 
+                    WHEN 'urgente' THEN 1 
+                    WHEN 'alta' THEN 2 
+                    WHEN 'media' THEN 3 
+                    WHEN 'baja' THEN 4 
+                    ELSE 5 
+                END ASC,
+                t.updated_at DESC, 
+                t.id DESC
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $tramites = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Contadores globales para columnas
+        $stmt_counts = $pdo->query("
+            SELECT 
+                COUNT(*) AS total,
+                SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) AS pendientes,
+                SUM(CASE WHEN estado = 'proceso' THEN 1 ELSE 0 END) AS proceso,
+                SUM(CASE WHEN estado = 'terminado' THEN 1 ELSE 0 END) AS terminados
+            FROM tramites
+        ");
+        $counts = $stmt_counts->fetch(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'tramites' => $tramites,
+            'counts' => [
+                'total' => intval($counts['total'] ?? 0),
+                'pendiente' => intval($counts['pendientes'] ?? 0),
+                'proceso' => intval($counts['proceso'] ?? 0),
+                'terminado' => intval($counts['terminados'] ?? 0)
+            ]
+        ]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al obtener trámites: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'get_tramite') {
+    try {
+        $id = intval($requestData['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de trámite inválido.']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT 
+                t.*,
+                cl.nombre AS cliente_nombre,
+                cl.telefono AS cliente_telefono,
+                cl.whatsapp AS cliente_whatsapp,
+                cl.email AS cliente_email,
+                p.numero_poliza,
+                p.aseguradora,
+                p.ramo,
+                p.moneda,
+                COALESCE(u.fullname, 'Equipo Núcleo') AS responsable_nombre
+            FROM tramites t
+            JOIN clientes cl ON t.cliente_id = cl.id
+            LEFT JOIN polizas p ON t.poliza_id = p.id
+            LEFT JOIN usuarios u ON t.usuario_id = u.id
+            WHERE t.id = :id
+        ");
+        $stmt->execute([':id' => $id]);
+        $tramite = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$tramite) {
+            echo json_encode(['success' => false, 'message' => 'Trámite no encontrado.']);
+            exit;
+        }
+
+        // Obtener historial completo de comentarios
+        $stmt_c = $pdo->prepare("
+            SELECT 
+                tc.*,
+                COALESCE(u.fullname, tc.autor_nombre) AS autor_display
+            FROM tramite_comentarios tc
+            LEFT JOIN usuarios u ON tc.usuario_id = u.id
+            WHERE tc.tramite_id = :id
+            ORDER BY tc.created_at ASC, tc.id ASC
+        ");
+        $stmt_c->execute([':id' => $id]);
+        $comentarios = $stmt_c->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'tramite' => $tramite,
+            'comentarios' => $comentarios
+        ]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al obtener detalle de trámite: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'save_tramite') {
+    try {
+        $id = intval($requestData['id'] ?? 0);
+        $cliente_id = intval($requestData['cliente_id'] ?? 0);
+        $poliza_id = !empty($requestData['poliza_id']) && intval($requestData['poliza_id']) > 0 ? intval($requestData['poliza_id']) : null;
+        $tipo_tramite = trim($requestData['tipo_tramite'] ?? 'General');
+        $titulo = trim($requestData['titulo'] ?? '');
+        $descripcion = trim($requestData['descripcion'] ?? '');
+        $prioridad = strtolower(trim($requestData['prioridad'] ?? 'media'));
+        if (!in_array($prioridad, ['baja', 'media', 'alta', 'urgente'])) $prioridad = 'media';
+
+        $estado = strtolower(trim($requestData['estado'] ?? 'pendiente'));
+        if ($estado === 'en proceso') $estado = 'proceso';
+        if (!in_array($estado, ['pendiente', 'proceso', 'terminado'])) $estado = 'pendiente';
+
+        $fecha_limite = !empty($requestData['fecha_limite']) ? trim($requestData['fecha_limite']) : null;
+        $comentario_inicial = trim($requestData['comentario_inicial'] ?? '');
+
+        if ($cliente_id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Selecciona el cliente/contratante del trámite.']);
+            exit;
+        }
+        if (empty($titulo)) {
+            echo json_encode(['success' => false, 'message' => 'Ingresa un título o asunto para el trámite.']);
+            exit;
+        }
+
+        // Obtener nombre del usuario actual
+        $autorNombre = 'Usuario';
+        if ($user_id) {
+            $stmtUser = $pdo->prepare("SELECT fullname FROM usuarios WHERE id = :id");
+            $stmtUser->execute([':id' => $user_id]);
+            $autorNombre = $stmtUser->fetchColumn() ?: 'Usuario';
+        }
+
+        if ($id > 0) {
+            $stmt = $pdo->prepare("
+                UPDATE tramites SET 
+                    cliente_id = :cliente_id,
+                    poliza_id = :poliza_id,
+                    tipo_tramite = :tipo_tramite,
+                    titulo = :titulo,
+                    descripcion = :descripcion,
+                    prioridad = :prioridad,
+                    estado = :estado,
+                    fecha_limite = :fecha_limite
+                WHERE id = :id
+            ");
+            $stmt->execute([
+                ':cliente_id' => $cliente_id,
+                ':poliza_id' => $poliza_id,
+                ':tipo_tramite' => $tipo_tramite,
+                ':titulo' => $titulo,
+                ':descripcion' => $descripcion,
+                ':prioridad' => $prioridad,
+                ':estado' => $estado,
+                ':fecha_limite' => $fecha_limite,
+                ':id' => $id
+            ]);
+            $tramite_id = $id;
+            $msg = 'Trámite actualizado exitosamente.';
+        } else {
+            $stmt = $pdo->prepare("
+                INSERT INTO tramites (
+                    usuario_id, cliente_id, poliza_id, tipo_tramite, titulo,
+                    descripcion, prioridad, estado, fecha_limite
+                ) VALUES (
+                    :usuario_id, :cliente_id, :poliza_id, :tipo_tramite, :titulo,
+                    :descripcion, :prioridad, :estado, :fecha_limite
+                )
+            ");
+            $stmt->execute([
+                ':usuario_id' => $user_id,
+                ':cliente_id' => $cliente_id,
+                ':poliza_id' => $poliza_id,
+                ':tipo_tramite' => $tipo_tramite,
+                ':titulo' => $titulo,
+                ':descripcion' => $descripcion,
+                ':prioridad' => $prioridad,
+                ':estado' => $estado,
+                ':fecha_limite' => $fecha_limite
+            ]);
+            $tramite_id = $pdo->lastInsertId();
+            $msg = 'Trámite registrado exitosamente.';
+
+            // Si hay descripción o comentario inicial, agregar al hilo
+            if (!empty($comentario_inicial) || !empty($descripcion)) {
+                $textoNota = !empty($comentario_inicial) ? $comentario_inicial : $descripcion;
+                $stmtC = $pdo->prepare("
+                    INSERT INTO tramite_comentarios (tramite_id, usuario_id, autor_nombre, comentario)
+                    VALUES (:tramite_id, :usuario_id, :autor_nombre, :comentario)
+                ");
+                $stmtC->execute([
+                    ':tramite_id' => $tramite_id,
+                    ':usuario_id' => $user_id,
+                    ':autor_nombre' => $autorNombre,
+                    ':comentario' => $textoNota
+                ]);
+            }
+        }
+
+        echo json_encode(['success' => true, 'message' => $msg, 'tramite_id' => $tramite_id]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al guardar trámite: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'update_tramite_estado') {
+    try {
+        $id = intval($requestData['id'] ?? 0);
+        $nuevo_estado = strtolower(trim($requestData['estado'] ?? ''));
+        if ($nuevo_estado === 'en proceso') $nuevo_estado = 'proceso';
+        $nota = trim($requestData['nota'] ?? '');
+
+        if ($id <= 0 || !in_array($nuevo_estado, ['pendiente', 'proceso', 'terminado'])) {
+            echo json_encode(['success' => false, 'message' => 'Parámetros inválidos para cambio de estado.']);
+            exit;
+        }
+
+        $stmtOld = $pdo->prepare("SELECT estado, titulo FROM tramites WHERE id = :id");
+        $stmtOld->execute([':id' => $id]);
+        $tramiteRow = $stmtOld->fetch(PDO::FETCH_ASSOC);
+        if (!$tramiteRow) {
+            echo json_encode(['success' => false, 'message' => 'Trámite no encontrado.']);
+            exit;
+        }
+
+        $estadoAnterior = $tramiteRow['estado'];
+
+        $stmt = $pdo->prepare("UPDATE tramites SET estado = :estado WHERE id = :id");
+        $stmt->execute([':estado' => $nuevo_estado, ':id' => $id]);
+
+        // Registrar comentario del cambio de estado
+        $labels = [
+            'pendiente' => 'Pendiente',
+            'proceso' => 'En Proceso',
+            'terminado' => 'Terminado'
+        ];
+
+        $autorNombre = 'Usuario';
+        if ($user_id) {
+            $stmtUser = $pdo->prepare("SELECT fullname FROM usuarios WHERE id = :id");
+            $stmtUser->execute([':id' => $user_id]);
+            $autorNombre = $stmtUser->fetchColumn() ?: 'Usuario';
+        }
+
+        $comentarioTexto = "Estado cambiado de [{$labels[$estadoAnterior]}] a [{$labels[$nuevo_estado]}].";
+        if (!empty($nota)) {
+            $comentarioTexto .= " Nota: " . $nota;
+        }
+
+        $stmtC = $pdo->prepare("
+            INSERT INTO tramite_comentarios (tramite_id, usuario_id, autor_nombre, comentario)
+            VALUES (:tramite_id, :usuario_id, :autor_nombre, :comentario)
+        ");
+        $stmtC->execute([
+            ':tramite_id' => $id,
+            ':usuario_id' => $user_id,
+            ':autor_nombre' => $autorNombre,
+            ':comentario' => $comentarioTexto
+        ]);
+
+        echo json_encode(['success' => true, 'message' => "Trámite movido a {$labels[$nuevo_estado]}."]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al actualizar estado del trámite: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'add_tramite_comentario') {
+    try {
+        $tramite_id = intval($requestData['tramite_id'] ?? 0);
+        $comentario = trim($requestData['comentario'] ?? '');
+
+        if ($tramite_id <= 0 || empty($comentario)) {
+            echo json_encode(['success' => false, 'message' => 'El comentario no puede estar vacío.']);
+            exit;
+        }
+
+        $autorNombre = trim($requestData['autor_nombre'] ?? '');
+        if (empty($autorNombre) && $user_id) {
+            $stmtUser = $pdo->prepare("SELECT fullname FROM usuarios WHERE id = :id");
+            $stmtUser->execute([':id' => $user_id]);
+            $autorNombre = $stmtUser->fetchColumn() ?: 'Usuario';
+        }
+        if (empty($autorNombre)) $autorNombre = 'Equipo Núcleo';
+
+        $stmt = $pdo->prepare("
+            INSERT INTO tramite_comentarios (tramite_id, usuario_id, autor_nombre, comentario)
+            VALUES (:tramite_id, :usuario_id, :autor_nombre, :comentario)
+        ");
+        $stmt->execute([
+            ':tramite_id' => $tramite_id,
+            ':usuario_id' => $user_id,
+            ':autor_nombre' => $autorNombre,
+            ':comentario' => $comentario
+        ]);
+
+        // Actualizar fecha updated_at del trámite
+        $pdo->prepare("UPDATE tramites SET updated_at = NOW() WHERE id = :id")->execute([':id' => $tramite_id]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Comentario agregado exitosamente.',
+            'comentario' => [
+                'id' => $pdo->lastInsertId(),
+                'autor_nombre' => $autorNombre,
+                'comentario' => $comentario,
+                'created_at' => date('Y-m-d H:i:s')
+            ]
+        ]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al agregar comentario: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'delete_tramite') {
+    try {
+        $id = intval($requestData['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de trámite inválido.']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM tramites WHERE id = :id");
+        $stmt->execute([':id' => $id]);
+        echo json_encode(['success' => true, 'message' => 'Trámite eliminado correctamente.']);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => 'Error al eliminar trámite: ' . $e->getMessage()]);
     }
     exit;
 }

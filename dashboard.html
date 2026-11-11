@@ -63,6 +63,11 @@
                     <i class="fa-solid fa-money-bill-transfer"></i>
                     <span class="nav-text">Cobranza</span>
                 </a>
+                <a href="javascript:void(0)" class="nav-item" id="nav-tramites" onclick="switchView('tramites')"
+                    title="Control de Trámites y Operaciones">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span class="nav-text">Trámites</span>
+                </a>
                 <a href="javascript:void(0)" class="nav-item" id="nav-clientes" onclick="switchView('clientes')"
                     title="Clientes">
                     <i class="fa-solid fa-users"></i>
@@ -81,6 +86,16 @@
                     title="Expediente Digital">
                     <i class="fa-solid fa-folder-open"></i>
                     <span class="nav-text">Documentos</span>
+                </a>
+                <a href="javascript:void(0)" class="nav-item" id="nav-agentes" onclick="switchView('agentes')"
+                    title="Agentes Encargados de Pólizas">
+                    <i class="fa-solid fa-user-tie"></i>
+                    <span class="nav-text">Agentes</span>
+                </a>
+                <a href="javascript:void(0)" class="nav-item" id="nav-aseguradoras" onclick="switchView('aseguradoras')"
+                    title="Catálogo de Compañías Aseguradoras">
+                    <i class="fa-solid fa-building-shield"></i>
+                    <span class="nav-text">Aseguradoras</span>
                 </a>
                 <a href="javascript:void(0)" class="nav-item" id="nav-settings" onclick="switchView('settings')"
                     title="Equipo y Colaboradores">
@@ -178,7 +193,8 @@
                     <div class="alerts-panel-header">
                         <div>
                             <h3>Recordatorios y Vencimientos</h3>
-                            <p class="alerts-subtext">Cobros (1 semana antes y día de pago) · Renovaciones (1 mes antes)</p>
+                            <p class="alerts-subtext">Cobros (1 semana antes y día de pago) · Renovaciones (1 mes antes)
+                            </p>
                         </div>
                         <span class="alerts-counter-badge" id="alertas-contador">0 recordatorios</span>
                     </div>
@@ -385,6 +401,23 @@
                                     <option value="todas">Todas</option>
                                 </select>
                             </div>
+                            <div class="filter-item">
+                                <label>Moneda</label>
+                                <select class="filter-select" id="polizas-filter-moneda"
+                                    onchange="filterPolizasTable()">
+                                    <option value="todas">Todas</option>
+                                    <option value="MXN">Pesos (MXN)</option>
+                                    <option value="USD">Dólares (USD)</option>
+                                    <option value="UDI">UDIS</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Agente</label>
+                                <select class="filter-select" id="polizas-filter-agente"
+                                    onchange="filterPolizasTable()">
+                                    <option value="todos">Todos los Agentes</option>
+                                </select>
+                            </div>
                         </div>
                         <button class="btn-clean" onclick="exportarPolizasCSV()" title="Descargar reporte en Excel">
                             <span>Exportar Excel</span>
@@ -402,6 +435,7 @@
                                     <th>CONTRATANTE</th>
                                     <th>RAMO</th>
                                     <th>ASEGURADORA</th>
+                                    <th>PRIMA</th>
                                     <th>ESTATUS</th>
                                     <th style="text-align: right;">ACCIONES</th>
                                 </tr>
@@ -454,7 +488,7 @@
                             <div class="kpi-icon-box rose"><i class="fa-solid fa-triangle-exclamation"></i></div>
                         </div>
                         <div class="kpi-value" id="cobranza-kpi-vencida" style="color: #e11d48;">$0.00</div>
-                        <div class="kpi-subtext" id="cobranza-kpi-vencida-sub">0 en mora</div>
+                        <div class="kpi-subtext" id="cobranza-kpi-vencida-sub">0 recibos vencidos</div>
                     </div>
                 </div>
 
@@ -472,8 +506,17 @@
                                 <select class="filter-select" id="cobranza-filter-estado" onchange="loadCobranzas()">
                                     <option value="todos">Todos los Estados</option>
                                     <option value="pendiente">Pendientes</option>
-                                    <option value="vencida">Vencidos (En Mora)</option>
+                                    <option value="vencida">Vencidos</option>
                                     <option value="realizada">Realizados (Pagados)</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Moneda</label>
+                                <select class="filter-select" id="cobranza-filter-moneda" onchange="loadCobranzas()">
+                                    <option value="todas">Todas</option>
+                                    <option value="MXN">Pesos (MXN)</option>
+                                    <option value="USD">Dólares (USD)</option>
+                                    <option value="UDI">UDIS</option>
                                 </select>
                             </div>
                             <div class="filter-item">
@@ -487,7 +530,8 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn-clean" onclick="exportarCobranzaCSV()" title="Descargar cobranza en Excel">
+                            <button class="btn-clean" onclick="exportarCobranzaCSV()"
+                                title="Descargar cobranza en Excel">
                                 <span>Exportar Excel</span>
                             </button>
                             <button class="btn-clean" onclick="resetCobranzaFilters()">
@@ -528,6 +572,114 @@
 
 
             <!-- ============================================================ -->
+            <!-- 3.1 VISTA DE TRÁMITES Y OPERACIONES (KANBAN MULTI-USUARIO) -->
+            <!-- ============================================================ -->
+            <section id="view-tramites" class="view-panel">
+                <div class="view-header-bar">
+                    <div class="title-group">
+                        <h2>Trámites</h2>
+                    </div>
+                    <div class="header-action-buttons">
+                        <button class="btn-primary-action" onclick="openModalNuevoTramite()">
+                            + Nuevo Trámite
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Barra de Búsqueda y Filtros de Trámites -->
+                <div class="toolbar-card">
+                    <div class="toolbar-flex">
+                        <div class="filters-group" style="flex: 1;">
+                            <div class="filter-item" style="flex: 1; min-width: 260px;">
+                                <label>Buscar Trámite</label>
+                                <input type="text" id="tramites-search" class="form-control"
+                                    placeholder="Buscar por asunto, cliente, póliza o notas..."
+                                    oninput="filterTramitesKanban()">
+                            </div>
+                            <div class="filter-item">
+                                <label>Prioridad</label>
+                                <select class="filter-select" id="tramites-filter-prioridad" onchange="loadTramites()">
+                                    <option value="todas">Todas las Prioridades</option>
+                                    <option value="urgente">Urgente</option>
+                                    <option value="alta">Alta</option>
+                                    <option value="media">Media</option>
+                                    <option value="baja">Baja</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <label>Tipo de Trámite</label>
+                                <select class="filter-select" id="tramites-filter-tipo"
+                                    onchange="filterTramitesKanban()">
+                                    <option value="todos">Todos los Tipos</option>
+                                    <option value="Endoso">Endoso</option>
+                                    <option value="Siniestro / Reclamación">Siniestro / Reclamación</option>
+                                    <option value="Cancelación">Cancelación</option>
+                                    <option value="Corrección de Datos">Corrección de Datos</option>
+                                    <option value="Reembolso">Reembolso</option>
+                                    <option value="Alta de Asegurado">Alta de Asegurado</option>
+                                    <option value="Aclaración de Cobranza">Aclaración de Cobranza</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; padding-bottom: 2px;">
+                            <span class="badge-persona"
+                                style="font-size: 0.85rem; font-weight: 600; padding: 6px 14px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 20px; color: #475569;"
+                                id="tramites-counter">
+                                0 trámites
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tablero Kanban de 3 Columnas por Color -->
+                <div class="tramites-kanban-board">
+                    <!-- COLUMNA 1: PENDIENTES (Ámbar) -->
+                    <div class="kanban-column col-pendiente">
+                        <div class="kanban-column-header">
+                            <div class="kanban-col-title">
+                                <span class="kanban-status-dot"></span>
+                                <span class="kanban-title-text">Pendientes</span>
+                            </div>
+                            <span class="kanban-counter-pill" id="kanban-count-pendiente">0</span>
+                        </div>
+                        <div class="kanban-cards-list" id="kanban-col-pendiente">
+                            <div class="kanban-empty-msg">Sin trámites pendientes</div>
+                        </div>
+                    </div>
+
+                    <!-- COLUMNA 2: EN PROCESO (Azul Índigo) -->
+                    <div class="kanban-column col-proceso">
+                        <div class="kanban-column-header">
+                            <div class="kanban-col-title">
+                                <span class="kanban-status-dot"></span>
+                                <span class="kanban-title-text">En Proceso</span>
+                            </div>
+                            <span class="kanban-counter-pill" id="kanban-count-proceso">0</span>
+                        </div>
+                        <div class="kanban-cards-list" id="kanban-col-proceso">
+                            <div class="kanban-empty-msg">Sin trámites en proceso</div>
+                        </div>
+                    </div>
+
+                    <!-- COLUMNA 3: TERMINADOS (Verde Esmeralda) -->
+                    <div class="kanban-column col-terminado">
+                        <div class="kanban-column-header">
+                            <div class="kanban-col-title">
+                                <span class="kanban-status-dot"></span>
+                                <span class="kanban-title-text">Terminados</span>
+                            </div>
+                            <span class="kanban-counter-pill" id="kanban-count-terminado">0</span>
+                        </div>
+                        <div class="kanban-cards-list" id="kanban-col-terminado">
+                            <div class="kanban-empty-msg">Sin trámites terminados</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================================================ -->
             <!-- 4. VISTA DE CLIENTES (CONTRATANTES) -->
             <!-- ============================================================ -->
             <section id="view-clientes" class="view-panel">
@@ -554,7 +706,8 @@
                             </div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <button class="btn-clean" onclick="exportarClientesCSV()" title="Descargar clientes en Excel">
+                            <button class="btn-clean" onclick="exportarClientesCSV()"
+                                title="Descargar clientes en Excel">
                                 <span>Exportar Excel</span>
                             </button>
                             <div style="font-size: 0.85rem; font-weight: 600; color: #475569;" id="clientes-counter">
@@ -644,9 +797,11 @@
                 <!-- Barra de Navegación y Filtros del Calendario -->
                 <div class="cal-controls-card">
                     <div class="cal-controls-left">
-                        <button type="button" class="btn-cal-nav" onclick="prevCalendarMonth()" title="Mes anterior">&larr;</button>
+                        <button type="button" class="btn-cal-nav" onclick="prevCalendarMonth()"
+                            title="Mes anterior">&larr;</button>
                         <h3 id="cal-current-month-label" class="cal-month-heading">Noviembre 2026</h3>
-                        <button type="button" class="btn-cal-nav" onclick="nextCalendarMonth()" title="Mes siguiente">&rarr;</button>
+                        <button type="button" class="btn-cal-nav" onclick="nextCalendarMonth()"
+                            title="Mes siguiente">&rarr;</button>
                         <button type="button" class="btn-cal-today" onclick="goToCurrentCalendarMonth()">Hoy</button>
                     </div>
 
@@ -675,7 +830,8 @@
                 <!-- Leyenda de colores minimalista -->
                 <div class="cal-legend">
                     <span class="legend-item"><span class="legend-dot dot-tarea"></span> Tarea</span>
-                    <span class="legend-item"><span class="legend-dot dot-aviso-7d"></span> Aviso de pago (1 semana)</span>
+                    <span class="legend-item"><span class="legend-dot dot-aviso-7d"></span> Aviso de pago (1
+                        semana)</span>
                     <span class="legend-item"><span class="legend-dot dot-pago-hoy"></span> Día de pago</span>
                     <span class="legend-item"><span class="legend-dot dot-renovacion"></span> Renovación (1 mes)</span>
                 </div>
@@ -706,6 +862,90 @@
                 </div>
             </section>
 
+            <!-- ============================================================ -->
+            <!-- 6.1 VISTA DE AGENTES ENCARGADOS DE PÓLIZAS -->
+            <!-- ============================================================ -->
+            <section id="view-agentes" class="view-panel">
+                <div class="view-header-bar">
+                    <div class="title-group">
+                        <h2>Agentes</h2>
+                    </div>
+                    <div class="header-action-buttons">
+                        <button class="btn-primary-action" onclick="openModalNuevoAgente()">
+                            + Nuevo Agente
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Buscador de Agentes -->
+                <div class="toolbar-card">
+                    <div class="toolbar-flex">
+                        <div class="filters-group" style="flex: 1;">
+                            <div class="filter-item" style="flex: 1; min-width: 280px;">
+                                <label>Buscar Agente</label>
+                                <input type="text" id="agentes-search" class="form-control"
+                                    placeholder="Buscar por nombre, agencia, correo, teléfono o RFC..."
+                                    oninput="filterAgentesGrid()">
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 0.85rem; font-weight: 600; color: #475569;" id="agentes-counter">
+                                0 agentes registrados
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grid de Tarjetas de Agentes -->
+                <div class="client-cards-grid" id="agentes-grid-container">
+                    <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #94a3b8;">
+                        Cargando agentes...
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================================================ -->
+            <!-- 6.2 VISTA DE CATÁLOGO DE ASEGURADORAS -->
+            <!-- ============================================================ -->
+            <section id="view-aseguradoras" class="view-panel">
+                <div class="view-header-bar">
+                    <div class="title-group">
+                        <h2>Aseguradoras</h2>
+                    </div>
+                    <div class="header-action-buttons">
+                        <button class="btn-primary-action" onclick="openModalNuevaAseguradora()">
+                            + Nueva Aseguradora
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Buscador de Aseguradoras -->
+                <div class="toolbar-card">
+                    <div class="toolbar-flex">
+                        <div class="filters-group" style="flex: 1;">
+                            <div class="filter-item" style="flex: 1; min-width: 280px;">
+                                <label>Buscar Aseguradora</label>
+                                <input type="text" id="aseguradoras-search" class="form-control"
+                                    placeholder="Buscar por nombre de compañía aseguradora..."
+                                    oninput="filterAseguradorasGrid()">
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 0.85rem; font-weight: 600; color: #475569;"
+                                id="aseguradoras-counter">
+                                0 aseguradoras registradas
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grid de Tarjetas de Aseguradoras -->
+                <div class="client-cards-grid" id="aseguradoras-grid-container">
+                    <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #94a3b8;">
+                        Cargando aseguradoras...
+                    </div>
+                </div>
+            </section>
 
             <!-- ============================================================ -->
             <!-- 7. VISTA DE EQUIPO Y COLABORADORES (SENCILLO) -->
@@ -719,7 +959,8 @@
 
                 <!-- Sub-pestañas -->
                 <div class="settings-subtabs-nav">
-                    <button class="settings-subtab active" id="subtab-btn-contactos" onclick="switchSettingsSubtab('contactos')">
+                    <button class="settings-subtab active" id="subtab-btn-contactos"
+                        onclick="switchSettingsSubtab('contactos')">
                         Contactos de Apoyo
                     </button>
                     <button class="settings-subtab" id="subtab-btn-equipos" onclick="switchSettingsSubtab('equipos')">
@@ -743,20 +984,24 @@
                                 </div>
                                 <div class="filter-item">
                                     <label>Aseguradora</label>
-                                    <select class="filter-select" id="contactos-filter-aseguradora" onchange="filterContactosTable()">
+                                    <select class="filter-select" id="contactos-filter-aseguradora"
+                                        onchange="filterContactosTable()">
                                         <option value="todas">Todas</option>
                                     </select>
                                 </div>
                                 <div class="filter-item">
                                     <label>Área</label>
-                                    <select class="filter-select" id="contactos-filter-area" onchange="filterContactosTable()">
+                                    <select class="filter-select" id="contactos-filter-area"
+                                        onchange="filterContactosTable()">
                                         <option value="todas">Todas</option>
                                     </select>
                                 </div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 1rem;">
-                                <span style="font-size: 0.85rem; font-weight: 600; color: #475569;" id="contactos-counter">0 contactos</span>
-                                <button class="btn-primary-action" onclick="openModalContacto()">+ Agregar Contacto</button>
+                                <span style="font-size: 0.85rem; font-weight: 600; color: #475569;"
+                                    id="contactos-counter">0 contactos</span>
+                                <button class="btn-primary-action" onclick="openModalContacto()">+ Agregar
+                                    Contacto</button>
                             </div>
                         </div>
                     </div>
@@ -777,7 +1022,8 @@
                                 </thead>
                                 <tbody id="contactos-table-body">
                                     <tr>
-                                        <td colspan="7" style="text-align: center; padding: 2.5rem; color: #94a3b8;">Cargando contactos...</td>
+                                        <td colspan="7" style="text-align: center; padding: 2.5rem; color: #94a3b8;">
+                                            Cargando contactos...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -806,13 +1052,15 @@
                         </div>
                         <div class="kpi-card">
                             <span class="kpi-label">CARTERA COMPARTIDA</span>
-                            <div class="kpi-value" id="kpi-eq-cartera" style="color: #059669; font-size: 1.3rem;">Activa</div>
+                            <div class="kpi-value" id="kpi-eq-cartera" style="color: #059669; font-size: 1.3rem;">Activa
+                            </div>
                             <div class="kpi-subtext">Colaboración centralizada</div>
                         </div>
                     </div>
 
                     <!-- Sección: Áreas del Equipo -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0;">
                             Áreas de Trabajo
                         </h3>
@@ -826,11 +1074,13 @@
                     </div>
 
                     <!-- Sección: Directorio de Colaboradores -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0;">
                             Mi Equipo (quién está en cada área)
                         </h3>
-                        <button class="btn-primary-action" onclick="openModalInvitarColaborador()" style="font-size: 0.825rem; padding: 0.5rem 1rem;">
+                        <button class="btn-primary-action" onclick="openModalInvitarColaborador()"
+                            style="font-size: 0.825rem; padding: 0.5rem 1rem;">
                             + Invitar a mi Equipo
                         </button>
                     </div>
@@ -842,18 +1092,19 @@
                                 <div class="filter-item" style="flex: 1; min-width: 240px;">
                                     <label>Buscar Colaborador</label>
                                     <input type="text" id="miembros-search" class="form-control"
-                                        placeholder="Nombre, correo o teléfono..."
-                                        oninput="filterMiembrosTable()">
+                                        placeholder="Nombre, correo o teléfono..." oninput="filterMiembrosTable()">
                                 </div>
                                 <div class="filter-item">
                                     <label>Equipo / Área</label>
-                                    <select class="filter-select" id="miembros-filter-equipo" onchange="filterMiembrosTable()">
+                                    <select class="filter-select" id="miembros-filter-equipo"
+                                        onchange="filterMiembrosTable()">
                                         <option value="todos">Todos los Equipos</option>
                                     </select>
                                 </div>
                                 <div class="filter-item">
                                     <label>Rol</label>
-                                    <select class="filter-select" id="miembros-filter-rol" onchange="filterMiembrosTable()">
+                                    <select class="filter-select" id="miembros-filter-rol"
+                                        onchange="filterMiembrosTable()">
                                         <option value="todos">Todos los Roles</option>
                                         <option value="admin">Administradores</option>
                                         <option value="agente">Asesores / Agentes</option>
@@ -903,12 +1154,14 @@
                             <form id="form-empresa-settings" onsubmit="handleSaveEmpresaSettings(event)">
                                 <div class="form-grid-2">
                                     <div class="form-group">
-                                        <label for="empresa-company">Nombre de la Empresa / Correduría <span class="req">*</span></label>
+                                        <label for="empresa-company">Nombre de la Empresa / Correduría <span
+                                                class="req">*</span></label>
                                         <input type="text" id="empresa-company" name="company" class="form-control"
                                             placeholder="Ej. Núcleo Seguros México" required>
                                     </div>
                                     <div class="form-group">
-                                        <label for="empresa-fullname">Titular / Administrador <span class="req">*</span></label>
+                                        <label for="empresa-fullname">Titular / Administrador <span
+                                                class="req">*</span></label>
                                         <input type="text" id="empresa-fullname" name="fullname" class="form-control"
                                             placeholder="Ej. Marcelo Ramon" required>
                                     </div>
@@ -1185,7 +1438,8 @@
                     <!-- Fila 2: WhatsApp y Teléfono -->
                     <div class="form-grid-2">
                         <div class="form-group">
-                            <label for="cliente-whatsapp">WhatsApp (Lada + 10 dígitos) <span class="req">*</span></label>
+                            <label for="cliente-whatsapp">WhatsApp (Lada + 10 dígitos) <span
+                                    class="req">*</span></label>
                             <input type="tel" id="cliente-whatsapp" name="whatsapp" class="form-control"
                                 placeholder="Ej. 5512345678" required>
                             <span style="font-size: 0.7rem; color: #64748b;">Se usará para enlace de 1 click con mensaje
@@ -1439,7 +1693,8 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-header">
                 <h3>Información del Cliente</h3>
-                <button class="modal-close-btn" onclick="closeModal('modal-detalle-cliente')"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-btn" onclick="closeModal('modal-detalle-cliente')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <div class="cliente-det-head">
@@ -1453,22 +1708,37 @@
                 <div class="cliente-det-grid" id="cdet-info"></div>
 
                 <div class="client-stats-bar" style="margin: 1rem 0;">
-                    <div class="client-stat"><div class="client-stat-value" id="cdet-stat-total">0</div><div class="client-stat-label">Pólizas</div></div>
-                    <div class="client-stat"><div class="client-stat-value" id="cdet-stat-vigentes" style="color: #16a34a;">0</div><div class="client-stat-label">Vigentes</div></div>
-                    <div class="client-stat"><div class="client-stat-value" id="cdet-stat-vencidas" style="color: #dc2626;">0</div><div class="client-stat-label">Vencidas</div></div>
-                    <div class="client-stat"><div class="client-stat-value" id="cdet-stat-docs">0</div><div class="client-stat-label">Archivos</div></div>
+                    <div class="client-stat">
+                        <div class="client-stat-value" id="cdet-stat-total">0</div>
+                        <div class="client-stat-label">Pólizas</div>
+                    </div>
+                    <div class="client-stat">
+                        <div class="client-stat-value" id="cdet-stat-vigentes" style="color: #16a34a;">0</div>
+                        <div class="client-stat-label">Vigentes</div>
+                    </div>
+                    <div class="client-stat">
+                        <div class="client-stat-value" id="cdet-stat-vencidas" style="color: #dc2626;">0</div>
+                        <div class="client-stat-label">Vencidas</div>
+                    </div>
+                    <div class="client-stat">
+                        <div class="client-stat-value" id="cdet-stat-docs">0</div>
+                        <div class="client-stat-label">Archivos</div>
+                    </div>
                 </div>
 
                 <div class="cliente-det-actions">
-                    <button type="button" class="btn-secondary-action" id="cdet-btn-polizas" onclick="toggleClienteSeccion('polizas')">Ver Pólizas</button>
-                    <button type="button" class="btn-secondary-action" id="cdet-btn-docs" onclick="toggleClienteSeccion('docs')">Ver Archivos</button>
+                    <button type="button" class="btn-secondary-action" id="cdet-btn-polizas"
+                        onclick="toggleClienteSeccion('polizas')">Ver Pólizas</button>
+                    <button type="button" class="btn-secondary-action" id="cdet-btn-docs"
+                        onclick="toggleClienteSeccion('docs')">Ver Archivos</button>
                 </div>
 
                 <div class="cliente-det-section" id="cdet-sec-polizas" style="display: none;"></div>
                 <div class="cliente-det-section" id="cdet-sec-docs" style="display: none;"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-secondary-action" onclick="closeModal('modal-detalle-cliente')">Cerrar</button>
+                <button type="button" class="btn-secondary-action"
+                    onclick="closeModal('modal-detalle-cliente')">Cerrar</button>
                 <button type="button" class="btn-secondary-action" id="cdet-btn-editar">Editar Cliente</button>
                 <button type="button" class="btn-primary-action" id="cdet-btn-nueva-poliza">+ Nueva Póliza</button>
             </div>
@@ -1493,7 +1763,7 @@
     </div>
 
 
- 
+
     <div class="modal-backdrop" id="modal-historico-pagos">
         <div class="modal-dialog modal-lg" style="max-width: 1080px; overflow: hidden; border-radius: 10px;">
 
@@ -1506,7 +1776,7 @@
                         class="fa-solid fa-xmark"></i></button>
             </div>
 
-  
+
             <div class="historico-subheader-bar">
                 <div class="historico-stat-box">
                     <span class="stat-title">CONTRATANTE</span>
@@ -1734,7 +2004,7 @@
             <div class="modal-body"
                 style="padding: 0; display: flex; align-items: center; justify-content: center; background: #0f172a; overflow: hidden;"
                 id="preview-doc-body">
-                
+
             </div>
         </div>
     </div>
@@ -1749,7 +2019,8 @@
         <div class="modal-dialog">
             <div class="modal-header">
                 <h3 id="modal-tarea-title">Nueva Tarea</h3>
-                <button class="modal-close-btn" onclick="closeModal('modal-tarea')"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-btn" onclick="closeModal('modal-tarea')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="form-tarea" onsubmit="handleSaveTarea(event)">
                 <input type="hidden" id="tarea-id" name="id" value="">
@@ -1785,7 +2056,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary-action" onclick="closeModal('modal-tarea')">Cancelar</button>
+                    <button type="button" class="btn-secondary-action"
+                        onclick="closeModal('modal-tarea')">Cancelar</button>
                     <button type="submit" class="btn-primary-action" id="btn-save-tarea">Guardar Tarea</button>
                 </div>
             </form>
@@ -1799,7 +2071,8 @@
         <div class="modal-dialog">
             <div class="modal-header">
                 <h3>Invitar a mi Equipo</h3>
-                <button class="modal-close-btn" onclick="closeModal('modal-invitar-miembro')"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-btn" onclick="closeModal('modal-invitar-miembro')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="form-invitar-miembro" onsubmit="handleSendInvitacion(event)">
                 <div class="modal-body">
@@ -1849,8 +2122,10 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary-action" onclick="closeModal('modal-invitar-miembro')">Cancelar</button>
-                    <button type="submit" class="btn-primary-action" id="btn-submit-invitar">Invitar Colaborador</button>
+                    <button type="button" class="btn-secondary-action"
+                        onclick="closeModal('modal-invitar-miembro')">Cancelar</button>
+                    <button type="submit" class="btn-primary-action" id="btn-submit-invitar">Invitar
+                        Colaborador</button>
                 </div>
             </form>
         </div>
@@ -1863,13 +2138,14 @@
         <div class="modal-dialog">
             <div class="modal-header">
                 <h3 id="modal-equipo-title">Crear Nuevo Equipo</h3>
-                <button class="modal-close-btn" onclick="closeModal('modal-equipo')"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-btn" onclick="closeModal('modal-equipo')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="form-equipo" onsubmit="handleSaveEquipo(event)">
                 <input type="hidden" id="equipo-id" name="id" value="">
                 <div class="modal-body">
                     <div class="form-group">
-                            <label for="equipo-nombre">Nombre del Área / Equipo <span class="req">*</span></label>
+                        <label for="equipo-nombre">Nombre del Área / Equipo <span class="req">*</span></label>
                         <input type="text" id="equipo-nombre" name="nombre" class="form-control" list="areas-sugeridas"
                             placeholder="Ej. Cobranza, Recursos Humanos, Siniestros..." required>
                         <datalist id="areas-sugeridas">
@@ -1927,30 +2203,38 @@
 
                     <div class="form-group" style="margin-bottom: 0;">
                         <label>Módulos Habilitados para este Equipo</label>
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 6px; font-size: 0.85rem;">
-                            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
+                        <div
+                            style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 6px; font-size: 0.85rem;">
+                            <label
+                                style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
                                 <input type="checkbox" name="permisos_modulos[]" value="dashboard" checked> Dashboard
                             </label>
-                            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
+                            <label
+                                style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
                                 <input type="checkbox" name="permisos_modulos[]" value="polizas" checked> Pólizas
                             </label>
-                            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
+                            <label
+                                style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
                                 <input type="checkbox" name="permisos_modulos[]" value="cobranza" checked> Cobranza
                             </label>
-                            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
+                            <label
+                                style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
                                 <input type="checkbox" name="permisos_modulos[]" value="clientes" checked> Clientes
                             </label>
-                            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
+                            <label
+                                style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
                                 <input type="checkbox" name="permisos_modulos[]" value="calendario" checked> Calendario
                             </label>
-                            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
+                            <label
+                                style="display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer;">
                                 <input type="checkbox" name="permisos_modulos[]" value="documentos" checked> Documentos
                             </label>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary-action" onclick="closeModal('modal-equipo')">Cancelar</button>
+                    <button type="button" class="btn-secondary-action"
+                        onclick="closeModal('modal-equipo')">Cancelar</button>
                     <button type="submit" class="btn-primary-action" id="btn-save-equipo">
                         Guardar Equipo
                     </button>
@@ -1966,7 +2250,8 @@
         <div class="modal-dialog">
             <div class="modal-header">
                 <h3 id="modal-contacto-title">Agregar Contacto de Apoyo</h3>
-                <button class="modal-close-btn" onclick="closeModal('modal-contacto')"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-btn" onclick="closeModal('modal-contacto')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="form-contacto" onsubmit="handleSaveContacto(event)">
                 <input type="hidden" id="contacto-id" name="id" value="">
@@ -2029,8 +2314,318 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary-action" onclick="closeModal('modal-contacto')">Cancelar</button>
+                    <button type="button" class="btn-secondary-action"
+                        onclick="closeModal('modal-contacto')">Cancelar</button>
                     <button type="submit" class="btn-primary-action" id="btn-save-contacto">Guardar Contacto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: REGISTRAR / EDITAR TRÁMITE -->
+    <!-- ============================================================ -->
+    <div class="modal-backdrop" id="modal-tramite">
+        <div class="modal-dialog" style="max-width: 680px;">
+            <div class="modal-header">
+                <h3 id="modal-tramite-title">Registrar Nuevo Trámite</h3>
+                <button class="modal-close-btn" onclick="closeModal('modal-tramite')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-tramite" onsubmit="handleSaveTramite(event)">
+                <input type="hidden" id="tramite-id" name="id" value="">
+                <div class="modal-body">
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label for="tramite-cliente-id">Contratante (Cliente) <span class="req">*</span></label>
+                            <select id="tramite-cliente-id" name="cliente_id" class="form-control" required
+                                onchange="onTramiteClienteChange()">
+                                <option value="">-- Seleccionar Contratante --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="tramite-poliza-id">Póliza Asociada</label>
+                            <select id="tramite-poliza-id" name="poliza_id" class="form-control">
+                                <option value="">(Sin póliza específica)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label for="tramite-tipo">Tipo de Trámite <span class="req">*</span></label>
+                            <select id="tramite-tipo" name="tipo_tramite" class="form-control" required>
+                                <option value="Endoso">Endoso (Modificación / Inclusión)</option>
+                                <option value="Siniestro / Reclamación">Siniestro / Reclamación</option>
+                                <option value="Cancelación">Cancelación</option>
+                                <option value="Corrección de Datos">Corrección de Datos</option>
+                                <option value="Reembolso">Reembolso Gastos Médicos</option>
+                                <option value="Alta de Asegurado">Alta / Baja de Asegurado</option>
+                                <option value="Aclaración de Cobranza">Aclaración de Cobranza / Recibos</option>
+                                <option value="Renovación">Renovación de Póliza</option>
+                                <option value="Emisión Nueva">Emisión Nueva</option>
+                                <option value="Otro">Otro Trámite</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="tramite-prioridad">Prioridad</label>
+                            <select id="tramite-prioridad" name="prioridad" class="form-control">
+                                <option value="Baja">Baja</option>
+                                <option value="Media" selected>Media</option>
+                                <option value="Alta">Alta</option>
+                                <option value="Urgente">Urgente</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tramite-titulo">Título o Asunto del Trámite <span class="req">*</span></label>
+                        <input type="text" id="tramite-titulo" name="titulo" class="form-control"
+                            placeholder="Ej. Cambio de conductor habitual / Ingreso de factura para reembolso..."
+                            required>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label for="tramite-estado">Estado del Trámite</label>
+                            <select id="tramite-estado" name="estado" class="form-control">
+                                <option value="Pendiente" selected>Pendiente (Por iniciar)</option>
+                                <option value="En Proceso">En Proceso (En gestión)</option>
+                                <option value="Terminado">Terminado (Resuelto / Cerrado)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="tramite-fecha-limite">Fecha Compromiso / Límite</label>
+                            <input type="date" id="tramite-fecha-limite" name="fecha_limite" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="tramite-descripcion">Detalles o Comentarios Iniciales</label>
+                        <textarea id="tramite-descripcion" name="descripcion" class="form-control" rows="3"
+                            placeholder="Anota aquí las especificaciones del trámite, folios o documentos solicitados. Todo el equipo podrá consultar y dar seguimiento a estos comentarios."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary-action"
+                        onclick="closeModal('modal-tramite')">Cancelar</button>
+                    <button type="submit" class="btn-primary-action" id="btn-save-tramite">Guardar Trámite</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: DETALLE DE TRÁMITE Y MURO DE COMENTARIOS COLABORATIVO -->
+    <!-- ============================================================ -->
+    <div class="modal-backdrop" id="modal-detalle-tramite">
+        <div class="modal-dialog" style="max-width: 780px;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="detalle-tramite-titulo" style="margin: 0; font-size: 1.2rem;">Detalle del Trámite</h3>
+                    <div style="font-size: 0.85rem; color: #6b7280; margin-top: 4px;" id="detalle-tramite-subtitulo">
+                        Seguimiento operativo
+                    </div>
+                </div>
+                <button class="modal-close-btn" onclick="closeModal('modal-detalle-tramite')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding-top: 1rem;">
+                <!-- Barra de Estado y Cambio Rápido -->
+                <div class="tramite-status-bar">
+                    <div class="tramite-current-status">
+                        <span style="font-size: 0.85rem; color: #6b7280;">Estado actual:</span>
+                        <span id="detalle-tramite-badge-estado" class="tramite-badge">Pendiente</span>
+                    </div>
+                    <div class="tramite-quick-actions">
+                        <span style="font-size: 0.8rem; color: #6b7280; margin-right: 0.25rem;">Mover a:</span>
+                        <button type="button" class="btn-status-pill pill-pendiente"
+                            onclick="cambiarEstadoDesdeDetalle('Pendiente')">Pendiente</button>
+                        <button type="button" class="btn-status-pill pill-proceso"
+                            onclick="cambiarEstadoDesdeDetalle('En Proceso')">En Proceso</button>
+                        <button type="button" class="btn-status-pill pill-terminado"
+                            onclick="cambiarEstadoDesdeDetalle('Terminado')">Terminado</button>
+                    </div>
+                </div>
+
+                <!-- Tarjeta con Ficha Técnica del Trámite -->
+                <div class="tramite-info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Contratante</span>
+                        <span class="info-value" id="detalle-tramite-cliente">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Póliza Asociada</span>
+                        <span class="info-value" id="detalle-tramite-poliza">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Tipo de Trámite</span>
+                        <span class="info-value" id="detalle-tramite-tipo">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Prioridad</span>
+                        <span class="info-value" id="detalle-tramite-prioridad">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Registrado por</span>
+                        <span class="info-value" id="detalle-tramite-autor">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Fecha Límite</span>
+                        <span class="info-value" id="detalle-tramite-fecha-limite">-</span>
+                    </div>
+                </div>
+
+                <!-- Descripción inicial si existe -->
+                <div id="detalle-tramite-desc-wrapper"
+                    style="margin-bottom: 1.25rem; background: #fafaf8; border-radius: 8px; border: 1px solid #e7e5e4; padding: 0.85rem 1rem;">
+                    <div
+                        style="font-size: 0.8rem; font-weight: 700; color: #57534e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.35rem;">
+                        Descripción inicial</div>
+                    <div id="detalle-tramite-descripcion"
+                        style="font-size: 0.95rem; color: #292524; line-height: 1.5; white-space: pre-wrap;"></div>
+                </div>
+
+                <!-- Muro de Comentarios y Avances -->
+                <div class="tramite-comments-wrapper">
+                    <div class="comments-header">
+                        <div>
+                            <h4 style="margin: 0; font-size: 1rem; color: #192918;">Comentarios y Avances del Trámite
+                            </h4>
+                            <p style="margin: 0.2rem 0 0; font-size: 0.825rem; color: #78716c;">Todos los colaboradores
+                                pueden leer las notas y agregar actualizaciones para mantener el orden.</p>
+                        </div>
+                        <span id="detalle-tramite-count-comentarios" class="badge-count">0 notas</span>
+                    </div>
+
+                    <!-- Lista de Comentarios (Timeline) -->
+                    <div id="tramite-comentarios-lista" class="comments-timeline">
+                        <div class="no-comments-msg">No hay comentarios registrados todavía.</div>
+                    </div>
+
+                    <!-- Formulario para Agregar Comentario -->
+                    <form id="form-tramite-nuevo-comentario" class="comment-input-box"
+                        onsubmit="handleAgregarComentarioTramite(event)">
+                        <input type="hidden" id="detalle-tramite-id" value="">
+                        <textarea id="tramite-nuevo-comentario" class="form-control" rows="2"
+                            placeholder="Escribe una actualización o nota sobre el trámite aquí..." required></textarea>
+                        <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+                            <button type="submit" class="btn-primary-action" id="btn-add-comentario"
+                                style="padding: 0.5rem 1.1rem; font-size: 0.85rem;">
+                                Publicar Comentario
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <div>
+                    <button type="button" class="btn-danger-action" id="btn-eliminar-tramite-detalle"
+                        onclick="eliminarTramiteActual()" style="font-size: 0.85rem;">
+                        Eliminar Trámite
+                    </button>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" class="btn-secondary-action" onclick="editarTramiteActual()">Editar
+                        Datos</button>
+                    <button type="button" class="btn-secondary-action"
+                        onclick="closeModal('modal-detalle-tramite')">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: REGISTRAR / EDITAR AGENTE -->
+    <!-- ============================================================ -->
+    <div class="modal-backdrop" id="modal-agente">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 id="modal-agente-title">Registrar Nuevo Agente</h3>
+                <button class="modal-close-btn" onclick="closeModal('modal-agente')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-agente" onsubmit="handleSaveAgente(event)">
+                <input type="hidden" id="agente-id" name="id" value="">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="agente-fullname">Nombre completo <span class="req">*</span></label>
+                        <input type="text" id="agente-fullname" name="fullname" class="form-control"
+                            placeholder="Ej. Roberto Morales Sánchez" required>
+                    </div>
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label for="agente-email">Correo electrónico <span class="req">*</span></label>
+                            <input type="email" id="agente-email" name="email" class="form-control"
+                                placeholder="roberto@seguros.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="agente-telefono">Teléfono / WhatsApp</label>
+                            <input type="tel" id="agente-telefono" name="telefono" class="form-control"
+                                placeholder="55 1234 5678">
+                        </div>
+                    </div>
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label for="agente-company">Agencia o Despacho</label>
+                            <input type="text" id="agente-company" name="company" class="form-control"
+                                placeholder="Ej. Safe and Sound / Broker Elite">
+                        </div>
+                        <div class="form-group">
+                            <label for="agente-rfc">RFC</label>
+                            <input type="text" id="agente-rfc" name="rfc" class="form-control"
+                                placeholder="XAXX010101000" maxlength="13">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="agente-password">Contraseña de Acceso (Opcional si usará el sistema)</label>
+                        <input type="password" id="agente-password" name="password" class="form-control"
+                            placeholder="Dejar vacío si no se asigna acceso web">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary-action"
+                        onclick="closeModal('modal-agente')">Cancelar</button>
+                    <button type="submit" class="btn-primary-action" id="btn-save-agente">Guardar Agente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: REGISTRAR / EDITAR ASEGURADORA (SENCILLO: NOMBRE Y DÍAS DE PAGO) -->
+    <!-- ============================================================ -->
+    <div class="modal-backdrop" id="modal-aseguradora">
+        <div class="modal-dialog" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 id="modal-aseguradora-title">Registrar Nueva Aseguradora</h3>
+                <button class="modal-close-btn" onclick="closeModal('modal-aseguradora')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-aseguradora" onsubmit="handleSaveAseguradora(event)">
+                <input type="hidden" id="aseguradora-id" name="id" value="">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="aseguradora-nombre">Nombre de la Aseguradora <span class="req">*</span></label>
+                        <input type="text" id="aseguradora-nombre" name="nombre" class="form-control"
+                            placeholder="Ej. GNP, AXA, Qualitas, Allianz..." required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="aseguradora-dias-pago">Días de Gracia / Período de Pago <span
+                                class="req">*</span></label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="number" id="aseguradora-dias-pago" name="dias_pago" class="form-control"
+                                min="1" max="90" value="30" style="max-width: 140px;" required>
+                            <span style="font-size: 0.9rem; color: #64748b; font-weight: 500;">días naturales para pago
+                                de recibo</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary-action"
+                        onclick="closeModal('modal-aseguradora')">Cancelar</button>
+                    <button type="submit" class="btn-primary-action" id="btn-save-aseguradora">Guardar
+                        Aseguradora</button>
                 </div>
             </form>
         </div>

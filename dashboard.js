@@ -16,6 +16,53 @@ const currencyFormatter = new Intl.NumberFormat('es-MX', {
     currency: 'MXN'
 });
 
+// Monedas soportadas en pólizas: Pesos (MXN), Dólares (USD) y UDIS (UDI)
+const MONEDAS = ['MXN', 'USD', 'UDI'];
+const MONEDA_LABELS = { MXN: 'Pesos', USD: 'Dólares', UDI: 'UDIS' };
+
+const SVG_ICONS = {
+    whatsapp: `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2m.01 1.67c2.2 0 4.26.86 5.82 2.42a8.23 8.23 0 0 1 2.41 5.82c0 4.54-3.7 8.24-8.24 8.24-1.42 0-2.82-.37-4.05-1.07l-.29-.17-3.12.82.83-3.04-.19-.3a8.21 8.21 0 0 1-1.26-4.48c0-4.54 3.7-8.24 8.24-8.24m4.52 11.53c-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.02-1.25-.75-.67-1.26-1.5-1.41-1.75-.14-.25-.02-.39.11-.51.11-.11.25-.29.38-.44.13-.14.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.34-.76-1.84-.2-.49-.4-.42-.56-.43h-.47c-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.23.89 2.41 1.02 2.58.13.17 1.76 2.68 4.26 3.76.6.26 1.06.41 1.42.53.6.19 1.15.16 1.58.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.1-.23-.17-.48-.29z"/></svg>`,
+    phone: `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>`,
+    envelope: `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>`,
+    upload: `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>`,
+    edit: `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`,
+    trash: `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`,
+    download: `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`,
+    pdf: `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zm4.5 2h1v-3h-1v3zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z"/></svg>`,
+    file: `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`
+};
+
+function formatMoney(amount, moneda = 'MXN') {
+    const n = parseFloat(amount) || 0;
+    const m = (moneda || 'MXN').toUpperCase();
+    const num = n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (m === 'USD') return `US$${num} USD`;
+    if (m === 'UDI') return `${num} UDIS`;
+    return `$${num} MXN`;
+}
+
+/**
+ * Pinta en un KPI los montos separados por moneda.
+ * porMoneda = { MXN: {pendiente:{monto,cantidad},...}, USD: {...}, UDI: {...} }
+ */
+function renderMoneyBreakdown(elId, porMoneda, key, monedaFiltro = 'todas') {
+    const el = document.getElementById(elId);
+    if (!el) return { cantidad: 0 };
+    const lista = monedaFiltro !== 'todas' ? [monedaFiltro] : MONEDAS;
+    let cantidad = 0;
+    const lines = [];
+    lista.forEach(m => {
+        const d = (porMoneda[m] && porMoneda[m][key]) || { monto: 0, cantidad: 0 };
+        cantidad += d.cantidad || 0;
+        // Siempre se muestra MXN; USD y UDIS solo si tienen movimientos (o si están filtradas)
+        if (m === 'MXN' || d.monto > 0 || d.cantidad > 0 || monedaFiltro !== 'todas') {
+            lines.push(`<div class="kpi-money-line">${formatMoney(d.monto, m)}</div>`);
+        }
+    });
+    el.innerHTML = lines.join('');
+    return { cantidad };
+}
+
 const dateFormatter = new Intl.DateTimeFormat('es-MX', {
     year: 'numeric',
     month: 'short',
@@ -79,7 +126,7 @@ function initUserSession() {
                 localStorage.setItem('nucleo_user', data.user.email || '');
             }
         })
-        .catch(() => {});
+        .catch(() => { });
 }
 
 async function logoutUser() {
@@ -87,7 +134,7 @@ async function logoutUser() {
     localStorage.removeItem('nucleo_fullname');
     try {
         await fetch('logout.php');
-    } catch (e) {}
+    } catch (e) { }
     window.location.href = 'index.html';
 }
 
@@ -118,9 +165,12 @@ function switchView(viewName) {
         dashboard: 'Dashboard',
         polizas: 'Pólizas',
         cobranza: 'Cobranza',
-        clientes: 'Contratantes',
-        calendario: 'Calendario y Tareas',
-        documentos: 'Expedientes',
+        tramites: 'Trámites',
+        clientes: 'Clientes',
+        calendario: 'Calendario',
+        documentos: 'Documentos',
+        agentes: 'Agentes',
+        aseguradoras: 'Aseguradoras',
         settings: 'Equipo'
     };
     if (breadcrumb && titles[viewName]) {
@@ -140,12 +190,18 @@ function switchView(viewName) {
         loadPolizas();
     } else if (viewName === 'cobranza') {
         loadCobranzas();
+    } else if (viewName === 'tramites') {
+        loadTramites();
     } else if (viewName === 'clientes') {
         loadClientes();
     } else if (viewName === 'calendario') {
         loadCalendarEvents();
     } else if (viewName === 'documentos') {
         loadDocumentos();
+    } else if (viewName === 'agentes') {
+        loadAgentes();
+    } else if (viewName === 'aseguradoras') {
+        loadAseguradoras();
     } else if (viewName === 'settings') {
         loadSettings();
     }
@@ -185,6 +241,12 @@ function handleGlobalSearch(term) {
             cobSearch.value = term;
             loadCobranzas();
         }
+    } else if (AppState.currentView === 'tramites') {
+        const tramSearch = document.getElementById('tramites-search');
+        if (tramSearch) {
+            tramSearch.value = term;
+            loadTramites();
+        }
     } else if (AppState.currentView === 'clientes') {
         const cliSearch = document.getElementById('clientes-search');
         if (cliSearch) {
@@ -196,6 +258,18 @@ function handleGlobalSearch(term) {
         if (docSearch) {
             docSearch.value = term;
             loadDocumentos();
+        }
+    } else if (AppState.currentView === 'agentes') {
+        const agSearch = document.getElementById('agentes-search');
+        if (agSearch) {
+            agSearch.value = term;
+            filterAgentesGrid();
+        }
+    } else if (AppState.currentView === 'aseguradoras') {
+        const asegSearch = document.getElementById('aseguradoras-search');
+        if (asegSearch) {
+            asegSearch.value = term;
+            filterAseguradorasGrid();
         }
     }
 }
@@ -211,10 +285,11 @@ async function loadDashboardAnalytics() {
     const periodo = document.getElementById('filter-periodo')?.value || 'todas';
     const fechaInicio = document.getElementById('filter-fecha-inicio')?.value || '';
     const fechaFin = document.getElementById('filter-fecha-fin')?.value || '';
+    const moneda = document.getElementById('filter-moneda')?.value || 'todas';
 
     const params = new URLSearchParams({
         action: 'get_dashboard_analytics',
-        agente, aseguradora, ramo, periodo,
+        agente, aseguradora, ramo, periodo, moneda,
         fecha_inicio: fechaInicio,
         fecha_fin: fechaFin
     });
@@ -224,12 +299,13 @@ async function loadDashboardAnalytics() {
         const data = await res.json();
 
         if (data.success) {
-            renderKPIs(data.summary);
+            AppState.dashMoneda = moneda;
+            renderKPIs(data.summary, data.por_moneda || {}, data.resumen_divisas || {});
             renderAlertasUrgentes(data.alertas_cobranza || [], data.alertas_renovaciones || []);
             renderRamosMetrics(data.cobranza_por_ramo || []);
             renderAseguradorasMetrics(data.cobranza_por_aseguradora || []);
             renderAgentesMetrics(data.cobranza_por_agente || []);
-            
+
             populateAgentesSelect(data.lista_agentes || []);
             populateAseguradorasSelect(data.lista_aseguradoras || []);
         }
@@ -238,21 +314,60 @@ async function loadDashboardAnalytics() {
     }
 }
 
-function renderKPIs(s) {
+function setDashboardMoneda(moneda) {
+    const sel = document.getElementById('filter-moneda');
+    if (sel) sel.value = moneda;
+    loadDashboardAnalytics();
+}
+
+function renderKPIs(s, porMoneda = {}, resumenDivisas = {}) {
     if (!s) return;
+    const filtro = document.getElementById('filter-moneda')?.value || 'todas';
 
-    setElemText('kpi-pendiente-monto', currencyFormatter.format(s.pendiente.monto));
-    setElemText('kpi-pendiente-cant', `${s.pendiente.cantidad} recibos por cobrar`);
+    // Tarjetas KPI Principales
+    if (filtro !== 'todas' && resumenDivisas[filtro]) {
+        const cur = resumenDivisas[filtro];
+        setElemText('kpi-vendido-monto', formatMoney(cur.total_vendido, filtro));
+        setElemText('kpi-vendido-subtext', `${cur.total_polizas || 0} pólizas en total`);
 
-    setElemText('kpi-realizada-monto', currencyFormatter.format(s.realizada.monto));
-    setElemText('kpi-realizada-cant', `${s.realizada.cantidad} recibos cobrados`);
+        setElemText('kpi-realizada-monto', formatMoney(cur.realizada_monto, filtro));
+        setElemText('kpi-realizada-cant', `${cur.realizada_cant || 0} recibos pagados`);
 
-    setElemText('kpi-vencida-monto', currencyFormatter.format(s.vencida.monto));
-    setElemText('kpi-vencida-cant', `${s.vencida.cantidad} recibos vencidos`);
+        setElemText('kpi-pendiente-monto', formatMoney(cur.pendiente_monto, filtro));
+        setElemText('kpi-pendiente-cant', `${cur.pendiente_cant || 0} recibos por cobrar`);
 
-    setElemText('kpi-eficiencia', `${s.eficiencia_porcentaje}%`);
-    setElemText('kpi-total-polizas', s.total_polizas || 0);
-    setElemText('kpi-polizas-subtext', `${s.polizas_activas || 0} vigentes, ${s.polizas_vencidas || 0} vencidas`);
+        setElemText('kpi-vencida-monto', formatMoney(cur.vencida_monto, filtro));
+        setElemText('kpi-vencida-cant', `${cur.vencida_cant || 0} recibos vencidos`);
+
+        setElemText('kpi-eficiencia', `${cur.eficiencia || 0}%`);
+        setElemText('kpi-total-polizas', cur.total_polizas || 0);
+        setElemText('kpi-polizas-subtext', `${cur.polizas_activas || 0} vigentes, ${cur.polizas_vencidas || 0} vencidas`);
+    } else {
+        // En "Todas", mostramos los montos por divisa
+        const vLines = [];
+        MONEDAS.forEach(m => {
+            const d = resumenDivisas[m];
+            if (d && (d.total_vendido > 0 || m === 'MXN')) {
+                vLines.push(`<div class="kpi-money-line">${formatMoney(d.total_vendido, m)}</div>`);
+            }
+        });
+        const elVendido = document.getElementById('kpi-vendido-monto');
+        if (elVendido) elVendido.innerHTML = vLines.length > 0 ? vLines.join('') : formatMoney(0, 'MXN');
+        setElemText('kpi-vendido-subtext', `${s.total_polizas || 0} pólizas en total`);
+
+        const r = renderMoneyBreakdown('kpi-realizada-monto', porMoneda, 'realizada', filtro);
+        setElemText('kpi-realizada-cant', `${r.cantidad} recibos pagados`);
+
+        const p = renderMoneyBreakdown('kpi-pendiente-monto', porMoneda, 'pendiente', filtro);
+        setElemText('kpi-pendiente-cant', `${p.cantidad} recibos por cobrar`);
+
+        const v = renderMoneyBreakdown('kpi-vencida-monto', porMoneda, 'vencida', filtro);
+        setElemText('kpi-vencida-cant', `${v.cantidad} recibos vencidos`);
+
+        setElemText('kpi-eficiencia', `${s.eficiencia_porcentaje}%`);
+        setElemText('kpi-total-polizas', s.total_polizas || 0);
+        setElemText('kpi-polizas-subtext', `${s.polizas_activas || 0} vigentes, ${s.polizas_vencidas || 0} vencidas`);
+    }
 
     setElemText('kpi-total-clientes', s.total_clientes || 0);
 }
@@ -461,22 +576,25 @@ function resetFilters() {
     document.getElementById('filter-aseguradora').value = 'todas';
     document.getElementById('filter-ramo').value = 'todos';
     document.getElementById('filter-periodo').value = 'todas';
+    const monedaDash = document.getElementById('filter-moneda');
+    if (monedaDash) monedaDash.value = 'todas';
     document.getElementById('filter-fecha-inicio').value = '';
     document.getElementById('filter-fecha-fin').value = '';
     document.getElementById('date-range-inputs').style.display = 'none';
     loadDashboardAnalytics();
 }
 
-function populateAgentesSelect(agentes) {
-    AppState.agentes = agentes;
-    const selects = ['filter-agente', 'poliza-agente-id'];
+function populateAgentesSelect(agentes, selectedId = null) {
+    if (agentes) AppState.agentes = agentes;
+    const list = AppState.agentes || [];
+    const selects = ['filter-agente', 'polizas-filter-agente', 'cobranza-filter-agente', 'poliza-agente-id'];
     selects.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        const currentVal = el.value;
+        const currentVal = selectedId !== null ? selectedId : el.value;
         const isFilter = id.includes('filter');
         el.innerHTML = isFilter ? '<option value="todos">Todos los Agentes</option>' : '<option value="">-- Selecciona el agente --</option>';
-        agentes.forEach(a => {
+        list.forEach(a => {
             const opt = document.createElement('option');
             opt.value = a.id;
             opt.textContent = `${a.fullname} (${a.company || 'Agencia'})`;
@@ -486,18 +604,22 @@ function populateAgentesSelect(agentes) {
     });
 }
 
-function populateAseguradorasSelect(aseguradoras) {
-    AppState.aseguradoras = aseguradoras;
-    const selects = ['filter-aseguradora', 'polizas-filter-aseguradora'];
+function populateAseguradorasSelect(aseguradoras, selectedVal = null) {
+    if (aseguradoras) AppState.aseguradoras = aseguradoras;
+    const list = AppState.aseguradoras || [];
+    const selects = ['filter-aseguradora', 'polizas-filter-aseguradora', 'cobranza-filter-aseguradora', 'contactos-filter-aseguradora', 'poliza-aseguradora'];
     selects.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        const currentVal = el.value;
-        el.innerHTML = '<option value="todas">Todas las Aseguradoras</option>';
-        aseguradoras.forEach(a => {
+        const currentVal = selectedVal !== null ? selectedVal : el.value;
+        const isPolicySelect = id === 'poliza-aseguradora';
+        el.innerHTML = isPolicySelect ? '<option value="">-- Selecciona aseguradora --</option>' : '<option value="todas">Todas las Aseguradoras</option>';
+        list.forEach(item => {
+            const name = typeof item === 'string' ? item : item.nombre;
+            if (!name) return;
             const opt = document.createElement('option');
-            opt.value = a;
-            opt.textContent = a;
+            opt.value = name;
+            opt.textContent = name;
             el.appendChild(opt);
         });
         if (currentVal) el.value = currentVal;
@@ -513,11 +635,16 @@ async function loadPolizas() {
     const estado = document.getElementById('polizas-filter-estado')?.value || 'todos';
     const ramo = document.getElementById('polizas-filter-ramo')?.value || 'todos';
     const aseguradora = document.getElementById('polizas-filter-aseguradora')?.value || 'todas';
+    const moneda = document.getElementById('polizas-filter-moneda')?.value || 'todas';
+    const agente_id = document.getElementById('polizas-filter-agente')?.value || 'todos';
 
     const params = new URLSearchParams({
         action: 'get_polizas',
-        q, estado, ramo, aseguradora
+        q, estado, ramo, aseguradora, moneda
     });
+    if (agente_id && agente_id !== 'todos') {
+        params.append('agente_id', agente_id);
+    }
 
     try {
         const res = await fetch(`api.php?${params.toString()}`);
@@ -572,6 +699,9 @@ function renderPolizasTable(polizas) {
                     <span class="badge-aseguradora">${escapeHtml(p.aseguradora)}</span>
                 </td>
                 <td>
+                    <span class="cell-bold">${formatMoney(p.prima_total, p.moneda)}</span>
+                </td>
+                <td>
                     <span class="badge-status ${p.badge_class}">
                         ${p.estatus_visual}
                     </span>
@@ -613,8 +743,10 @@ function openModalNuevaPoliza(clienteIdPreselect = null) {
     document.getElementById('poliza-vigencia-desde').value = hoy;
     autoCalculateVigenciaFin();
 
-    // Poblar selector de clientes
+    // Poblar selectores de clientes, agentes y aseguradoras
     populateClientesSelect('poliza-cliente-id', clienteIdPreselect);
+    populateAgentesSelect(AppState.agentes);
+    populateAseguradorasSelect(AppState.aseguradoras);
 
     openModal('modal-poliza');
 }
@@ -631,7 +763,8 @@ async function openModalEditarPoliza(id) {
             document.getElementById('modal-poliza-title').innerHTML = `Editar Póliza ${escapeHtml(p.numero_poliza)}`;
 
             populateClientesSelect('poliza-cliente-id', p.cliente_id);
-            document.getElementById('poliza-agente-id').value = p.usuario_id;
+            populateAgentesSelect(AppState.agentes, p.usuario_id);
+            populateAseguradorasSelect(AppState.aseguradoras, p.aseguradora);
             document.getElementById('poliza-numero').value = p.numero_poliza;
             document.getElementById('poliza-aseguradora').value = p.aseguradora;
             document.getElementById('poliza-ramo').value = p.ramo;
@@ -672,7 +805,7 @@ function calculateTotalPremium() {
 
     const total = neta + recargo + derecho + iva;
     document.getElementById('poliza-prima-total').value = total.toFixed(2);
-    document.getElementById('poliza-total-display').textContent = currencyFormatter.format(total);
+    document.getElementById('poliza-total-display').textContent = formatMoney(total, document.getElementById('poliza-moneda')?.value || 'MXN');
 
     calculateCuotasPreview();
 }
@@ -797,8 +930,8 @@ async function abrirHistoricoPagos(id) {
 
             // 2. Barra Azul Marino con Metadatos
             setElemText('historico-contratante', p.cliente_nombre.toUpperCase());
-            setElemText('historico-prima-total', `${currencyFormatter.format(p.prima_total)} ${p.moneda || 'MXN'}`);
-            setElemText('historico-pagos-resumen', `Pagado: ${currencyFormatter.format(resumen.monto_pagado)} (${resumen.cuotas_pagadas} de ${resumen.total_cuotas} cuotas)`);
+            setElemText('historico-prima-total', `${formatMoney(p.prima_total, p.moneda)}`);
+            setElemText('historico-pagos-resumen', `Pagado: ${formatMoney(resumen.monto_pagado, p.moneda)} (${resumen.cuotas_pagadas} de ${resumen.total_cuotas} cuotas)`);
             setElemText('historico-frecuencia', p.periodicidad || 'Mensual');
             setElemText('historico-conducto', `Conducto: ${p.forma_pago || 'Cargo a tarjeta'}`);
 
@@ -819,7 +952,7 @@ async function abrirHistoricoPagos(id) {
                         const serie = r.numero_recibo || `${idx + 1}/${recibos.length}`;
                         const inicioVig = formatDateMX(r.fecha_inicio_recibo || r.fecha_vencimiento);
                         const fLimite = formatDateMX(r.fecha_limite_pago || r.fecha_vencimiento);
-                        const montoFmt = `${currencyFormatter.format(r.monto)} ${p.moneda || 'MXN'}`;
+                        const montoFmt = `${formatMoney(r.monto, p.moneda)}`;
                         const metodo = r.metodo_pago || p.forma_pago || 'Tarjeta de crédito';
                         const notas = r.notas || '';
 
@@ -879,8 +1012,8 @@ async function abrirHistoricoPagos(id) {
             }
 
             // 4. Barra Total Inferior
-            setElemText('historico-resumen-inferior', `Van ${resumen.cuotas_pagadas} de ${resumen.total_cuotas} pagos realizados (${currencyFormatter.format(resumen.monto_pagado)}) · Saldo pendiente: ${currencyFormatter.format(resumen.monto_pendiente)}`);
-            setElemText('historico-total-monto-inferior', `${currencyFormatter.format(p.prima_total)} ${p.moneda || 'MXN'}`);
+            setElemText('historico-resumen-inferior', `Van ${resumen.cuotas_pagadas} de ${resumen.total_cuotas} pagos realizados (${formatMoney(resumen.monto_pagado, p.moneda)}) · Saldo pendiente: ${formatMoney(resumen.monto_pendiente, p.moneda)}`);
+            setElemText('historico-total-monto-inferior', `${formatMoney(p.prima_total, p.moneda)}`);
 
             openModal('modal-historico-pagos');
         }
@@ -1089,7 +1222,7 @@ async function verDetallePoliza(id) {
 
         const isVigente = p.estado_poliza === 'activa';
         const badgeClass = isVigente ? 'badge-vigente' : 'badge-vencida';
-        const badgeText = isVigente ? 'Activa / Vigente' : (p.estado_poliza === 'cancelada' ? 'Cancelada' : 'Vencida / En Mora');
+        const badgeText = isVigente ? 'Activa / Vigente' : (p.estado_poliza === 'cancelada' ? 'Cancelada' : 'Vencida');
 
         // Cálculo de vigencia
         const fDesde = formatDateMX(p.vigencia_desde);
@@ -1151,23 +1284,23 @@ async function verDetallePoliza(id) {
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.825rem; margin-bottom: 4px; color: #475569;">
                         <span>Prima Neta:</span>
-                        <span>${currencyFormatter.format(p.prima_neta || 0)}</span>
+                        <span>${formatMoney(p.prima_neta || 0, p.moneda)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.825rem; margin-bottom: 4px; color: #475569;">
                         <span>Recargo Fraccionado:</span>
-                        <span>${currencyFormatter.format(p.recargo_fraccionado || 0)}</span>
+                        <span>${formatMoney(p.recargo_fraccionado || 0, p.moneda)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.825rem; margin-bottom: 4px; color: #475569;">
                         <span>Derecho de Póliza:</span>
-                        <span>${currencyFormatter.format(p.derecho_poliza || 0)}</span>
+                        <span>${formatMoney(p.derecho_poliza || 0, p.moneda)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.825rem; margin-bottom: 4px; color: #475569;">
                         <span>IVA (16%):</span>
-                        <span>${currencyFormatter.format(p.iva || 0)}</span>
+                        <span>${formatMoney(p.iva || 0, p.moneda)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 700; color: #0f172a; border-top: 1px dashed #cbd5e1; padding-top: 6px; margin-top: 6px;">
                         <span>Prima Total:</span>
-                        <span style="color: #059669;">${currencyFormatter.format(p.prima_total || 0)} ${p.moneda || 'MXN'}</span>
+                        <span style="color: #059669;">${formatMoney(p.prima_total || 0, p.moneda)}</span>
                     </div>
                     <div style="font-size: 0.775rem; color: #64748b; margin-top: 6px;">
                         Periodicidad: <strong>${escapeHtml(p.periodicidad || 'Anual')}</strong> · Forma: <strong>${escapeHtml(p.forma_pago || 'Transferencia')}</strong>
@@ -1192,8 +1325,8 @@ async function verDetallePoliza(id) {
                     <div style="background: #059669; height: 100%; width: ${pctCobrado}%; border-radius: 9999px; transition: width 0.4s ease;"></div>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b;">
-                    <span>Cobrado: <strong style="color: #059669;">${currencyFormatter.format(resumen.monto_pagado)}</strong></span>
-                    <span>Pendiente: <strong style="color: #b45309;">${currencyFormatter.format(resumen.monto_pendiente)}</strong></span>
+                    <span>Cobrado: <strong style="color: #059669;">${formatMoney(resumen.monto_pagado, p.moneda)}</strong></span>
+                    <span>Pendiente: <strong style="color: #b45309;">${formatMoney(resumen.monto_pendiente, p.moneda)}</strong></span>
                 </div>
             </div>
 
@@ -1291,10 +1424,11 @@ async function loadCobranzas() {
     const q = document.getElementById('cobranza-search')?.value || '';
     const estado = document.getElementById('cobranza-filter-estado')?.value || 'todos';
     const periodo = document.getElementById('cobranza-filter-periodo')?.value || 'todos';
+    const moneda = document.getElementById('cobranza-filter-moneda')?.value || 'todas';
 
     const params = new URLSearchParams({
         action: 'get_cobranzas',
-        q, estado, periodo
+        q, estado, periodo, moneda
     });
 
     try {
@@ -1312,32 +1446,35 @@ async function loadCobranzas() {
 }
 
 function updateCobranzasKPIs(items) {
-    let pendMonto = 0, pendCant = 0;
-    let realMonto = 0, realCant = 0;
-    let vencMonto = 0, vencCant = 0;
+    // Totales separados por moneda (MXN, USD, UDIS)
+    const porMoneda = {};
+    MONEDAS.forEach(m => {
+        porMoneda[m] = {
+            pendiente: { monto: 0, cantidad: 0 },
+            realizada: { monto: 0, cantidad: 0 },
+            vencida: { monto: 0, cantidad: 0 }
+        };
+    });
 
     items.forEach(c => {
-        const m = parseFloat(c.monto) || 0;
-        if (c.estado === 'pendiente') {
-            pendMonto += m;
-            pendCant++;
-        } else if (c.estado === 'realizada') {
-            realMonto += m;
-            realCant++;
-        } else if (c.estado === 'vencida') {
-            vencMonto += m;
-            vencCant++;
+        const m = MONEDAS.includes((c.moneda || '').toUpperCase()) ? c.moneda.toUpperCase() : 'MXN';
+        const monto = parseFloat(c.monto) || 0;
+        if (porMoneda[m][c.estado]) {
+            porMoneda[m][c.estado].monto += monto;
+            porMoneda[m][c.estado].cantidad++;
         }
     });
 
-    setElemText('cobranza-kpi-pendiente', currencyFormatter.format(pendMonto));
-    setElemText('cobranza-kpi-pendiente-sub', `${pendCant} recibos pendientes`);
+    const filtro = document.getElementById('cobranza-filter-moneda')?.value || 'todas';
 
-    setElemText('cobranza-kpi-realizada', currencyFormatter.format(realMonto));
-    setElemText('cobranza-kpi-realizada-sub', `${realCant} recibos cobrados`);
+    const p = renderMoneyBreakdown('cobranza-kpi-pendiente', porMoneda, 'pendiente', filtro);
+    setElemText('cobranza-kpi-pendiente-sub', `${p.cantidad} recibos pendientes`);
 
-    setElemText('cobranza-kpi-vencida', currencyFormatter.format(vencMonto));
-    setElemText('cobranza-kpi-vencida-sub', `${vencCant} recibos en mora`);
+    const r = renderMoneyBreakdown('cobranza-kpi-realizada', porMoneda, 'realizada', filtro);
+    setElemText('cobranza-kpi-realizada-sub', `${r.cantidad} recibos pagados`);
+
+    const v = renderMoneyBreakdown('cobranza-kpi-vencida', porMoneda, 'vencida', filtro);
+    setElemText('cobranza-kpi-vencida-sub', `${v.cantidad} recibos vencidos`);
 }
 
 function renderCobranzasTable(cobranzas) {
@@ -1369,7 +1506,7 @@ function renderCobranzasTable(cobranzas) {
         }
 
         const cleanWa = cleanPhoneForWhatsApp(c.cliente_whatsapp || c.cliente_telefono);
-        const msgWa = encodeURIComponent(`Hola ${c.cliente_nombre}, le enviamos un recordatorio de pago para el recibo #${c.numero_recibo} de su póliza ${c.numero_poliza} (${c.aseguradora}) por ${currencyFormatter.format(c.monto)}, con fecha límite ${c.fecha_vencimiento}. Por favor envíenos su comprobante para mantener su póliza vigente.`);
+        const msgWa = encodeURIComponent(`Hola ${c.cliente_nombre}, le enviamos un recordatorio de pago para el recibo #${c.numero_recibo} de su póliza ${c.numero_poliza} (${c.aseguradora}) por ${formatMoney(c.monto, c.moneda)}, con fecha límite ${c.fecha_vencimiento}. Por favor envíenos su comprobante para mantener su póliza vigente.`);
         const wspLink = cleanWa ? `https://wa.me/${cleanWa}?text=${msgWa}` : '#';
 
         return `
@@ -1386,7 +1523,7 @@ function renderCobranzasTable(cobranzas) {
                     <span class="cell-subtext">${escapeHtml(c.cliente_telefono || c.cliente_email || 'Sin datos')}</span>
                 </td>
                 <td>
-                    <span class="cell-bold" style="font-size: 0.95rem; color: #0f172a;">${currencyFormatter.format(c.monto)}</span>
+                    <span class="cell-bold" style="font-size: 0.95rem; color: #0f172a;">${formatMoney(c.monto, c.moneda)}</span>
                 </td>
                 <td>
                     <span class="cell-bold">${c.fecha_vencimiento}</span>
@@ -1510,6 +1647,8 @@ function resetCobranzaFilters() {
     document.getElementById('cobranza-search').value = '';
     document.getElementById('cobranza-filter-estado').value = 'todos';
     document.getElementById('cobranza-filter-periodo').value = 'todos';
+    const monedaCob = document.getElementById('cobranza-filter-moneda');
+    if (monedaCob) monedaCob.value = 'todas';
     loadCobranzas();
 }
 
@@ -1625,23 +1764,23 @@ function renderClientesGrid(clientes) {
                 <div class="client-card-actions">
                     <div style="display: flex; gap: 6px;">
                         ${cleanWa ? `
-                            <a href="${wspLink}" target="_blank" class="btn-action btn-wsp" title="Enviar WhatsApp a 1 Clic"><i class="fa-brands fa-whatsapp"></i></a>
+                            <a href="${wspLink}" target="_blank" class="btn-action btn-wsp" title="Enviar WhatsApp a 1 Clic">${SVG_ICONS.whatsapp}</a>
                         ` : ''}
                         ${phoneLink ? `
-                            <a href="${phoneLink}" class="btn-action btn-call" title="Llamar con 1 Clic"><i class="fa-solid fa-phone"></i></a>
+                            <a href="${phoneLink}" class="btn-action btn-call" title="Llamar con 1 Clic">${SVG_ICONS.phone}</a>
                         ` : ''}
                         ${mailLink ? `
-                            <a href="${mailLink}" class="btn-action btn-mail" title="Enviar Correo con 1 Clic"><i class="fa-solid fa-envelope"></i></a>
+                            <a href="${mailLink}" class="btn-action btn-mail" title="Enviar Correo con 1 Clic">${SVG_ICONS.envelope}</a>
                         ` : ''}
-                        <button class="btn-action btn-doc" onclick="openModalUploadDoc(${c.id})" title="Subir Documento (INE / CSF / Comprobante) a 1 Clic"><i class="fa-solid fa-file-arrow-up"></i></button>
+                        <button class="btn-action btn-doc" onclick="openModalUploadDoc(${c.id})" title="Subir Documento (INE / CSF / Comprobante) a 1 Clic">${SVG_ICONS.upload}</button>
                     </div>
 
                     <div style="display: flex; gap: 6px;">
-                        <button class="btn-clean" style="padding: 2px 8px; font-size: 0.75rem;" onclick="openModalNuevaPoliza(${c.id})" title="Nueva Póliza para este cliente">
-                            Póliza
+                        <button class="btn-clean" style="padding: 2px 8px; font-size: 0.75rem; font-weight: 600;" onclick="openDetalleCliente(${c.id}, 'polizas')" title="Ver solo las pólizas de este cliente">
+                            Ver Pólizas
                         </button>
-                        <button class="btn-action btn-edit" onclick="openModalEditarCliente(${c.id})" title="Editar Cliente"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-action btn-del" onclick="eliminarCliente(${c.id}, '${escapeHtml(c.nombre)}')" title="Eliminar Cliente"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn-action btn-edit" onclick="openModalEditarCliente(${c.id})" title="Editar Cliente">${SVG_ICONS.edit}</button>
+                        <button class="btn-action btn-del" onclick="eliminarCliente(${c.id}, '${escapeHtml(c.nombre)}')" title="Eliminar Cliente">${SVG_ICONS.trash}</button>
                     </div>
                 </div>
             </div>
@@ -1650,7 +1789,7 @@ function renderClientesGrid(clientes) {
 }
 
 /* --- Ficha de cliente: información, pólizas propias y archivos guardados --- */
-async function openDetalleCliente(id, seccion = null) {
+async function openDetalleCliente(id, seccion = 'polizas') {
     try {
         const res = await fetch(`api.php?action=get_cliente&id=${id}`);
         const data = await res.json();
@@ -1720,7 +1859,7 @@ async function openDetalleCliente(id, seccion = null) {
                 </div>
                 <div style="display: flex; gap: 6px;">
                     <button type="button" class="btn-clean" onclick="previewDocumento('${escapeHtml(d.titulo || 'Documento')}', '${d.archivo_ruta}', '${d.archivo_extension}')">Previsualizar</button>
-                    <a href="${d.archivo_ruta}" download class="btn-action btn-view" title="Descargar"><i class="fa-solid fa-download"></i></a>
+                    <a href="${d.archivo_ruta}" download class="btn-action btn-view" title="Descargar">${SVG_ICONS.download}</a>
                 </div>
             </div>`).join('') : '<div class="cliente-det-empty">Este cliente no tiene archivos guardados.</div>';
 
@@ -1913,7 +2052,7 @@ function renderDocumentosGrid(docs) {
             <div class="doc-card">
                 <div>
                     <div class="doc-card-top">
-                        <div class="doc-icon-box ${iconType}"><i class="fa-solid ${mainIcon}"></i></div>
+                        <div class="doc-icon-box ${iconType}">${isPdf ? SVG_ICONS.pdf : SVG_ICONS.file}</div>
                         <div class="doc-meta">
                             <h4 title="${escapeHtml(d.titulo)}">${escapeHtml(d.titulo)}</h4>
                             <p>${escapeHtml(d.archivo_nombre_original)}</p>
@@ -1934,8 +2073,8 @@ function renderDocumentosGrid(docs) {
                         Previsualizar
                     </button>
                     <div style="display: flex; gap: 4px;">
-                        <a href="${d.archivo_ruta}" download class="btn-action btn-view" title="Descargar"><i class="fa-solid fa-download"></i></a>
-                        <button class="btn-action btn-del" onclick="eliminarDocumento(${d.id}, '${escapeHtml(d.titulo)}')" title="Eliminar Archivo"><i class="fa-solid fa-trash"></i></button>
+                        <a href="${d.archivo_ruta}" download class="btn-action btn-view" title="Descargar">${SVG_ICONS.download}</a>
+                        <button class="btn-action btn-del" onclick="eliminarDocumento(${d.id}, '${escapeHtml(d.titulo)}')" title="Eliminar Archivo">${SVG_ICONS.trash}</button>
                     </div>
                 </div>
             </div>
@@ -2066,7 +2205,7 @@ async function preloadAgentesYClientes() {
             AppState.agentes = dataAge.agentes || [];
             populateAgentesSelect(AppState.agentes);
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 function populateClientesSelect(selectId, selectedId = null) {
@@ -2104,7 +2243,7 @@ async function populatePolizasPorCliente(clienteId, selectId, selectedPolizaId =
                 el.appendChild(opt);
             });
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 function initGlobalEventListeners() {
@@ -2296,9 +2435,9 @@ function renderContactosTable(contactos) {
                 <td style="font-size: 0.8rem; color: #64748b; max-width: 220px;">${c.notas ? escapeHtml(c.notas) : ''}</td>
                 <td style="text-align: right; white-space: nowrap;">
                     <div style="display: inline-flex; gap: 6px;">
-                        ${cleanWa ? `<a href="https://wa.me/${cleanWa}" target="_blank" class="btn-action btn-wsp" title="Escribir por WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>` : ''}
-                        <button type="button" class="btn-action btn-edit" onclick="openModalContacto(${c.id})" title="Editar contacto"><i class="fa-solid fa-pen"></i></button>
-                        <button type="button" class="btn-action btn-del" onclick="eliminarContacto(${c.id}, '${escapeHtml(c.nombre)}')" title="Eliminar contacto"><i class="fa-solid fa-trash"></i></button>
+                        ${cleanWa ? `<a href="https://wa.me/${cleanWa}" target="_blank" class="btn-action btn-wsp" title="Escribir por WhatsApp">${SVG_ICONS.whatsapp}</a>` : ''}
+                        <button type="button" class="btn-action btn-edit" onclick="openModalContacto(${c.id})" title="Editar contacto">${SVG_ICONS.edit}</button>
+                        <button type="button" class="btn-action btn-del" onclick="eliminarContacto(${c.id}, '${escapeHtml(c.nombre)}')" title="Eliminar contacto">${SVG_ICONS.trash}</button>
                     </div>
                 </td>
             </tr>`;
@@ -2861,7 +3000,7 @@ async function toggleEstadoMiembro(id, currentEstado) {
             showToast(`Estado cambiado a ${nuevoEstado}.`, 'success');
             loadSettings();
         }
-    } catch (err) {}
+    } catch (err) { }
 }
 
 async function handleSaveEmpresaSettings(e) {
@@ -3475,5 +3614,1032 @@ function verPolizasDeCliente(clienteNombre) {
     if (input) {
         input.value = clienteNombre;
         loadPolizas();
+    }
+}
+
+/* ==========================================================================
+   10. MÓDULO 8: GESTIÓN DE AGENTES ENCARGADOS DE PÓLIZAS
+   ========================================================================== */
+
+let _agenteFromPolicyModal = false;
+
+async function loadAgentes() {
+    const container = document.getElementById('agentes-grid-container');
+    const counter = document.getElementById('agentes-counter');
+    if (!container) return;
+
+    try {
+        const res = await fetch('api.php?action=get_agentes');
+        const data = await res.json();
+        if (data.success && data.agentes) {
+            AppState.agentes = data.agentes;
+            if (counter) counter.textContent = `${data.agentes.length} agentes registrados`;
+            renderAgentesGrid(data.agentes);
+            populateAgentesSelect(data.agentes);
+        } else {
+            container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #dc2626;">${escapeHtml(data.message || 'Error al cargar agentes.')}</div>`;
+        }
+    } catch (err) {
+        console.error('Error al cargar agentes:', err);
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #dc2626;">Error de conexión al cargar agentes.</div>`;
+    }
+}
+
+function renderAgentesGrid(agentes) {
+    const container = document.getElementById('agentes-grid-container');
+    if (!container) return;
+
+    if (!agentes || agentes.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 4rem; color: #94a3b8;">
+                No hay agentes registrados. Haz clic en "+ Nuevo Agente" para agregar uno.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = agentes.map(a => {
+        const initial = (a.fullname || 'A').charAt(0).toUpperCase();
+        const cleanWa = cleanPhoneForWhatsApp(a.telefono);
+        const wspLink = cleanWa ? `https://wa.me/${cleanWa}?text=${encodeURIComponent(`Hola ${a.fullname}, te contacto de la administración de Núcleo Seguros.`)}` : '';
+        const phoneLink = a.telefono ? `tel:${a.telefono.replace(/[^0-9]/g, '')}` : '';
+        const mailLink = a.email ? `mailto:${a.email}` : '';
+
+        return `
+            <div class="client-card">
+                <div>
+                    <div class="client-card-header">
+                        <div class="client-avatar-name">
+                            <div class="client-avatar" style="background:#192918; color:#fff5de;">${initial}</div>
+                            <div class="client-name-box">
+                                <h4>${escapeHtml(a.fullname)}</h4>
+                                <span class="badge-persona" style="background: #e2e8f0; color: #334155;">${escapeHtml(a.company || 'Agencia')}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="client-info-list">
+                        ${a.email ? `
+                            <div class="client-info-item">
+                                <span>Correo: <strong>${escapeHtml(a.email)}</strong></span>
+                            </div>
+                        ` : ''}
+                        ${a.telefono ? `
+                            <div class="client-info-item">
+                                <span>Teléfono: <strong>${escapeHtml(a.telefono)}</strong></span>
+                            </div>
+                        ` : ''}
+                        ${a.rfc ? `
+                            <div class="client-info-item">
+                                <span>RFC: <strong>${escapeHtml(a.rfc)}</strong></span>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="client-stats-bar" style="cursor: pointer;" onclick="verPolizasDeAgente(${a.id})" title="Ver pólizas de este agente">
+                        <div class="client-stat">
+                            <div class="client-stat-value">${a.total_polizas || 0}</div>
+                            <div class="client-stat-label">Pólizas</div>
+                        </div>
+                        <div class="client-stat">
+                            <div class="client-stat-value" style="color: #059669;">${a.polizas_activas || 0}</div>
+                            <div class="client-stat-label">Vigentes</div>
+                        </div>
+                        <div class="client-stat">
+                            <div class="client-stat-value" style="font-size: 0.85rem;">${currencyFormatter.format(a.total_vendido || 0)}</div>
+                            <div class="client-stat-label">Vendido</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="client-card-actions">
+                    <div style="display: flex; gap: 6px;">
+                        ${cleanWa ? `
+                            <a href="${wspLink}" target="_blank" class="btn-action btn-wsp" title="WhatsApp">${SVG_ICONS.whatsapp}</a>
+                        ` : ''}
+                        ${phoneLink ? `
+                            <a href="${phoneLink}" class="btn-action btn-call" title="Llamar">${SVG_ICONS.phone}</a>
+                        ` : ''}
+                        ${mailLink ? `
+                            <a href="${mailLink}" class="btn-action btn-mail" title="Correo">${SVG_ICONS.envelope}</a>
+                        ` : ''}
+                    </div>
+
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn-clean" style="padding: 2px 8px; font-size: 0.75rem; font-weight: 600;" onclick="verPolizasDeAgente(${a.id})" title="Ver pólizas de este agente">
+                            Ver Pólizas
+                        </button>
+                        <button class="btn-action btn-edit" onclick="openModalEditarAgente(${a.id})" title="Editar Agente">${SVG_ICONS.edit}</button>
+                        ${parseInt(a.id, 10) !== 1 ? `
+                            <button class="btn-action btn-del" onclick="eliminarAgente(${a.id}, '${escapeHtml(a.fullname)}')" title="Eliminar Agente">${SVG_ICONS.trash}</button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterAgentesGrid() {
+    const term = (document.getElementById('agentes-search')?.value || '').toLowerCase().trim();
+    if (!term) {
+        renderAgentesGrid(AppState.agentes);
+        return;
+    }
+    const filtered = (AppState.agentes || []).filter(a => {
+        return (a.fullname || '').toLowerCase().includes(term) ||
+            (a.company || '').toLowerCase().includes(term) ||
+            (a.email || '').toLowerCase().includes(term) ||
+            (a.telefono || '').toLowerCase().includes(term) ||
+            (a.rfc || '').toLowerCase().includes(term);
+    });
+    renderAgentesGrid(filtered);
+}
+
+function verPolizasDeAgente(agenteId) {
+    switchView('polizas');
+    const filterSelect = document.getElementById('polizas-filter-agente');
+    if (filterSelect) {
+        filterSelect.value = agenteId;
+        loadPolizas();
+    }
+}
+
+function openModalNuevoAgente(fromPolicy = false) {
+    _agenteFromPolicyModal = fromPolicy;
+    const form = document.getElementById('form-agente');
+    if (form) form.reset();
+    document.getElementById('agente-id').value = '';
+    setElemText('modal-agente-title', 'Registrar Nuevo Agente');
+    openModal('modal-agente');
+}
+
+function openModalEditarAgente(id) {
+    _agenteFromPolicyModal = false;
+    const agente = (AppState.agentes || []).find(a => parseInt(a.id, 10) === parseInt(id, 10));
+    if (!agente) return;
+
+    document.getElementById('agente-id').value = agente.id;
+    document.getElementById('agente-fullname').value = agente.fullname || '';
+    document.getElementById('agente-company').value = agente.company || '';
+    document.getElementById('agente-email').value = agente.email || '';
+    document.getElementById('agente-telefono').value = agente.telefono || '';
+    document.getElementById('agente-rfc').value = agente.rfc || '';
+    document.getElementById('agente-password').value = '';
+    setElemText('modal-agente-title', 'Editar Agente');
+    openModal('modal-agente');
+}
+
+async function handleSaveAgente(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-agente');
+    if (btn) btn.disabled = true;
+
+    const form = document.getElementById('form-agente');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        const res = await fetch('api.php?action=save_agente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeModal('modal-agente');
+            await loadAgentes();
+
+            if (_agenteFromPolicyModal) {
+                const selectAg = document.getElementById('poliza-agente-id');
+                if (selectAg && AppState.agentes.length > 0) {
+                    const match = AppState.agentes.find(a => a.email === data.email);
+                    if (match) selectAg.value = match.id;
+                }
+            }
+        } else {
+            showToast(result.message || 'Error al guardar agente.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al guardar agente:', err);
+        showToast('Error de conexión al guardar agente.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function eliminarAgente(id, nombre) {
+    if (!confirm(`¿Estás seguro de que deseas eliminar al agente "${nombre}"? Esta acción no se puede deshacer.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch('api.php?action=delete_agente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast(result.message, 'success');
+            await loadAgentes();
+        } else {
+            showToast(result.message || 'No se pudo eliminar el agente.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al eliminar agente:', err);
+        showToast('Error de conexión al eliminar agente.', 'error');
+    }
+}
+
+/* ==========================================================================
+   11. MÓDULO 9: GESTIÓN DE COMPAÑÍAS ASEGURADORAS
+   ========================================================================== */
+
+let _asegFromPolicyModal = false;
+
+async function loadAseguradoras() {
+    const container = document.getElementById('aseguradoras-grid-container');
+    const counter = document.getElementById('aseguradoras-counter');
+    if (!container) return;
+
+    try {
+        const res = await fetch('api.php?action=get_aseguradoras');
+        const data = await res.json();
+        if (data.success && data.aseguradoras) {
+            AppState.aseguradoras = data.aseguradoras;
+            if (counter) counter.textContent = `${data.aseguradoras.length} aseguradoras registradas`;
+            renderAseguradorasGrid(data.aseguradoras);
+            populateAseguradorasSelect(data.aseguradoras);
+        } else {
+            container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #dc2626;">${escapeHtml(data.message || 'Error al cargar aseguradoras.')}</div>`;
+        }
+    } catch (err) {
+        console.error('Error al cargar aseguradoras:', err);
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #dc2626;">Error de conexión al cargar aseguradoras.</div>`;
+    }
+}
+
+function renderAseguradorasGrid(aseguradoras) {
+    const container = document.getElementById('aseguradoras-grid-container');
+    if (!container) return;
+
+    if (!aseguradoras || aseguradoras.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 4rem; color: #94a3b8;">
+                No hay aseguradoras registradas. Haz clic en "+ Nueva Aseguradora" para agregar una.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = aseguradoras.map(a => {
+        const initial = (a.nombre || 'S').charAt(0).toUpperCase();
+        const dias = parseInt(a.dias_pago, 10) || 30;
+
+        return `
+            <div class="client-card">
+                <div>
+                    <div class="client-card-header">
+                        <div class="client-avatar-name">
+                            <div class="client-avatar" style="background:#192918; color:#fff5de;">${initial}</div>
+                            <div class="client-name-box">
+                                <h4>${escapeHtml(a.nombre)}</h4>
+                                <span class="badge-persona" style="background: #e2e8f0; color: #1e293b; font-weight: 700;">${dias} días de pago</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="client-stats-bar" style="cursor: pointer; margin-top: 10px;" onclick="verPolizasDeAseguradora('${escapeHtml(a.nombre)}')" title="Ver pólizas de esta aseguradora">
+                        <div class="client-stat">
+                            <div class="client-stat-value">${a.total_polizas || 0}</div>
+                            <div class="client-stat-label">Pólizas</div>
+                        </div>
+                        <div class="client-stat">
+                            <div class="client-stat-value" style="color: #059669;">${a.polizas_activas || 0}</div>
+                            <div class="client-stat-label">Vigentes</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="client-card-actions" style="margin-top: 10px; justify-content: flex-end; gap: 8px;">
+                    <button class="btn-clean" style="padding: 4px 10px; font-size: 0.8rem; font-weight: 600;" onclick="verPolizasDeAseguradora('${escapeHtml(a.nombre)}')" title="Ver pólizas de esta aseguradora">
+                        Ver Pólizas
+                    </button>
+                    <button class="btn-action btn-edit" onclick="openModalEditarAseguradora(${a.id})" title="Editar Aseguradora">${SVG_ICONS.edit}</button>
+                    <button class="btn-action btn-del" onclick="eliminarAseguradora(${a.id}, '${escapeHtml(a.nombre)}')" title="Eliminar Aseguradora">${SVG_ICONS.trash}</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterAseguradorasGrid() {
+    const term = (document.getElementById('aseguradoras-search')?.value || '').toLowerCase().trim();
+    if (!term) {
+        renderAseguradorasGrid(AppState.aseguradoras);
+        return;
+    }
+    const filtered = (AppState.aseguradoras || []).filter(a => {
+        return (a.nombre || '').toLowerCase().includes(term);
+    });
+    renderAseguradorasGrid(filtered);
+}
+
+function verPolizasDeAseguradora(aseguradoraNombre) {
+    switchView('polizas');
+    const filterSelect = document.getElementById('polizas-filter-aseguradora');
+    if (filterSelect) {
+        filterSelect.value = aseguradoraNombre;
+        loadPolizas();
+    }
+}
+
+function openModalNuevaAseguradora(fromPolicy = false) {
+    _asegFromPolicyModal = fromPolicy;
+    const form = document.getElementById('form-aseguradora');
+    if (form) form.reset();
+    document.getElementById('aseguradora-id').value = '';
+    const inputDias = document.getElementById('aseguradora-dias-pago');
+    if (inputDias) inputDias.value = '30';
+    setElemText('modal-aseguradora-title', 'Registrar Nueva Aseguradora');
+    openModal('modal-aseguradora');
+}
+
+function openModalEditarAseguradora(id) {
+    _asegFromPolicyModal = false;
+    const aseg = (AppState.aseguradoras || []).find(a => parseInt(a.id, 10) === parseInt(id, 10));
+    if (!aseg) return;
+
+    document.getElementById('aseguradora-id').value = aseg.id;
+    document.getElementById('aseguradora-nombre').value = aseg.nombre || '';
+    document.getElementById('aseguradora-dias-pago').value = aseg.dias_pago || 30;
+    setElemText('modal-aseguradora-title', 'Editar Aseguradora');
+    openModal('modal-aseguradora');
+}
+
+async function handleSaveAseguradora(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-aseguradora');
+    if (btn) btn.disabled = true;
+
+    const form = document.getElementById('form-aseguradora');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        const res = await fetch('api.php?action=save_aseguradora', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast(result.message, 'success');
+            closeModal('modal-aseguradora');
+            await loadAseguradoras();
+
+            if (_asegFromPolicyModal) {
+                const selectAseg = document.getElementById('poliza-aseguradora');
+                if (selectAseg) {
+                    selectAseg.value = data.nombre;
+                }
+            }
+        } else {
+            showToast(result.message || 'Error al guardar aseguradora.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al guardar aseguradora:', err);
+        showToast('Error de conexión al guardar aseguradora.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function eliminarAseguradora(id, nombre) {
+    if (!confirm(`¿Estás seguro de que deseas eliminar la aseguradora "${nombre}" del catálogo?`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch('api.php?action=delete_aseguradora', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast(result.message, 'success');
+            await loadAseguradoras();
+        } else {
+            showToast(result.message || 'No se pudo eliminar la aseguradora.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al eliminar aseguradora:', err);
+        showToast('Error de conexión al eliminar aseguradora.', 'error');
+    }
+}
+
+/* ==========================================================================
+   11. MÓDULO: CONTROL DE TRÁMITES Y OPERACIONES (KANBAN & COMENTARIOS)
+   ========================================================================== */
+
+let _tramiteActualId = null;
+let _tramiteTimeout = null;
+
+function filterTramitesDebounce() {
+    clearTimeout(_tramiteTimeout);
+    _tramiteTimeout = setTimeout(() => {
+        loadTramites();
+    }, 300);
+}
+
+function filterTramitesKanban() {
+    filterTramitesDebounce();
+}
+
+async function loadTramites() {
+    const q = document.getElementById('tramites-search')?.value || '';
+    const prioridad = document.getElementById('tramites-filter-prioridad')?.value || 'todas';
+    const tipo = document.getElementById('tramites-filter-tipo')?.value || 'todos';
+
+    const params = new URLSearchParams({
+        action: 'get_tramites',
+        q,
+        prioridad,
+        tipo_tramite: tipo
+    });
+
+    try {
+        const res = await fetch(`api.php?${params.toString()}`);
+        const data = await res.json();
+
+        if (data.success) {
+            const list = data.tramites || [];
+            const counts = data.counts || { total: list.length, pendiente: 0, proceso: 0, terminado: 0 };
+
+            // Actualizar contadores
+            setElemText('tramites-counter', `${counts.total} trámites registrados`);
+            setElemText('kanban-count-pendiente', counts.pendiente || 0);
+            setElemText('kanban-count-proceso', counts.proceso || 0);
+            setElemText('kanban-count-terminado', counts.terminado || 0);
+
+            // Filtrar por columnas
+            const pendientes = list.filter(t => (t.estado || '').toLowerCase() === 'pendiente');
+            const enProceso = list.filter(t => {
+                const est = (t.estado || '').toLowerCase();
+                return est === 'proceso' || est === 'en proceso';
+            });
+            const terminados = list.filter(t => (t.estado || '').toLowerCase() === 'terminado');
+
+            renderKanbanColumn('kanban-col-pendiente', pendientes, 'pendiente');
+            renderKanbanColumn('kanban-col-proceso', enProceso, 'proceso');
+            renderKanbanColumn('kanban-col-terminado', terminados, 'terminado');
+        } else {
+            showToast(data.message || 'Error al cargar trámites.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al cargar trámites:', err);
+        showToast('Error de conexión al obtener los trámites.', 'error');
+    }
+}
+
+function renderKanbanColumn(containerId, items, colType) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!items || items.length === 0) {
+        let msg = 'No hay trámites pendientes';
+        if (colType === 'proceso') msg = 'No hay trámites en proceso actualmente';
+        if (colType === 'terminado') msg = 'No hay trámites completados';
+
+        container.innerHTML = `<div class="kanban-empty-hint">${msg}</div>`;
+        return;
+    }
+
+    const html = items.map(t => renderTramiteCard(t)).join('');
+    container.innerHTML = html;
+}
+
+function renderTramiteCard(t) {
+    const safeTitle = escapeHtml(t.titulo || 'Sin título');
+    const safeCliente = escapeHtml(t.cliente_nombre || 'Sin cliente asignado');
+    const safeTipo = escapeHtml(t.tipo_tramite || 'Trámite');
+    const prioridad = (t.prioridad || 'Media').toLowerCase();
+    const prioridadClass = `prioridad-${prioridad}`;
+
+    // Tag póliza
+    let polizaHtml = '';
+    if (t.numero_poliza || t.poliza_numero) {
+        const numPol = escapeHtml(t.numero_poliza || t.poliza_numero);
+        polizaHtml = `<span class="card-poliza-tag">Póliza: ${numPol}${t.aseguradora ? ' (' + escapeHtml(t.aseguradora) + ')' : ''}</span>`;
+    }
+
+    // Último comentario preview
+    let commentPreviewHtml = '';
+    if (t.ultimo_comentario) {
+        const autor = typeof t.ultimo_comentario === 'object'
+            ? escapeHtml(t.ultimo_comentario.autor_nombre || 'Colaborador')
+            : escapeHtml(t.ultimo_comentario_autor || 'Colaborador');
+        const text = typeof t.ultimo_comentario === 'object'
+            ? escapeHtml(t.ultimo_comentario.comentario || '')
+            : escapeHtml(t.ultimo_comentario || '');
+        const snippet = text.length > 85 ? text.substring(0, 85) + '...' : text;
+        commentPreviewHtml = `
+            <div class="card-comment-preview" title="Última actualización por ${autor}">
+                <strong>${autor}:</strong> ${snippet}
+            </div>
+        `;
+    } else if (t.descripcion) {
+        const desc = escapeHtml(t.descripcion);
+        const snippet = desc.length > 85 ? desc.substring(0, 85) + '...' : desc;
+        commentPreviewHtml = `
+            <div class="card-comment-preview" style="border-left-color: #e2e8f0;">
+                <em>${snippet}</em>
+            </div>
+        `;
+    }
+
+    // Botones de acción rápida de cambio de estado
+    const rawEstado = (t.estado || 'pendiente').toLowerCase();
+    const estado = (rawEstado === 'en proceso' || rawEstado === 'proceso') ? 'proceso' : rawEstado;
+    let moveButtonsHtml = '';
+    if (estado === 'pendiente') {
+        moveButtonsHtml = `
+            <button type="button" class="btn-move-step btn-move-proceso" onclick="cambiarEstadoTramite(${t.id}, 'proceso')" title="Iniciar gestión del trámite">
+                Mover a Proceso
+            </button>
+            <button type="button" class="btn-move-step btn-move-terminado" onclick="cambiarEstadoTramite(${t.id}, 'terminado')" title="Marcar como resuelto">
+                Terminar
+            </button>
+        `;
+    } else if (estado === 'proceso') {
+        moveButtonsHtml = `
+            <button type="button" class="btn-move-step btn-move-pendiente" onclick="cambiarEstadoTramite(${t.id}, 'pendiente')" title="Regresar a pendientes">
+                Regresar
+            </button>
+            <button type="button" class="btn-move-step btn-move-terminado" onclick="cambiarEstadoTramite(${t.id}, 'terminado')" title="Marcar como terminado">
+                Marcar Terminado
+            </button>
+        `;
+    } else {
+        moveButtonsHtml = `
+            <button type="button" class="btn-move-step btn-move-proceso" onclick="cambiarEstadoTramite(${t.id}, 'proceso')" title="Reabrir trámite para gestión">
+                Reabrir en Proceso
+            </button>
+        `;
+    }
+
+    const numComentarios = parseInt(t.total_comentarios || t.num_comentarios || 0, 10);
+    const commentLabel = numComentarios === 1 ? '1 nota' : `${numComentarios} notas`;
+
+    return `
+        <div class="kanban-card" id="tramite-card-${t.id}">
+            <div class="card-meta-bar">
+                <span class="badge-tipo-tramite">${safeTipo}</span>
+                <span class="badge-prioridad ${prioridadClass}">${escapeHtml(t.prioridad || 'Media')}</span>
+            </div>
+
+            <h4 class="card-title" onclick="abrirDetalleTramite(${t.id})" title="Ver detalles y notas">${safeTitle}</h4>
+
+            <div class="card-client-wrap">
+                <span class="card-client-name">${safeCliente}</span>
+                ${polizaHtml}
+            </div>
+
+            ${commentPreviewHtml}
+
+            <div class="card-footer-actions">
+                <button type="button" class="card-comments-trigger" onclick="abrirDetalleTramite(${t.id})">
+                    <i class="fa-regular fa-comment-dots"></i> ${commentLabel}
+                </button>
+                <div class="quick-move-pills">
+                    ${moveButtonsHtml}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function cambiarEstadoTramite(id, nuevoEstado, nota = '') {
+    try {
+        const res = await fetch('api.php?action=update_tramite_estado', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, estado: nuevoEstado, nota })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast(`Trámite actualizado a "${nuevoEstado}"`, 'success');
+            await loadTramites();
+
+            // Si el modal de detalle está abierto con este trámite, refrescar su vista
+            if (_tramiteActualId === id) {
+                await abrirDetalleTramite(id);
+            }
+        } else {
+            showToast(result.message || 'No se pudo cambiar el estado.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al actualizar estado:', err);
+        showToast('Error de conexión al cambiar estado.', 'error');
+    }
+}
+
+async function abrirDetalleTramite(id) {
+    _tramiteActualId = id;
+    try {
+        const res = await fetch(`api.php?action=get_tramite&id=${id}`);
+        const data = await res.json();
+
+        if (!data.success || !data.tramite) {
+            showToast(data.message || 'No se encontró el trámite.', 'error');
+            return;
+        }
+
+        const t = data.tramite;
+        const comentarios = data.comentarios || [];
+
+        // Encabezado y meta
+        setElemText('detalle-tramite-titulo', t.titulo || 'Detalle del Trámite');
+        setElemText('detalle-tramite-subtitulo', `Trámite #${t.id} - Registrado el ${formatFechaVisual(t.created_at)}`);
+
+        // Badge de estado actual
+        const badgeEstado = document.getElementById('detalle-tramite-badge-estado');
+        if (badgeEstado) {
+            const raw = (t.estado || 'pendiente').toLowerCase();
+            const estLabel = (raw === 'proceso' || raw === 'en proceso') ? 'En Proceso' : (raw === 'terminado' ? 'Terminado' : 'Pendiente');
+            badgeEstado.textContent = estLabel;
+            badgeEstado.className = 'tramite-badge';
+            if (raw === 'pendiente') badgeEstado.classList.add('prioridad-alta');
+            else if (raw === 'proceso' || raw === 'en proceso') badgeEstado.classList.add('prioridad-media');
+            else badgeEstado.classList.add('pill-terminado');
+        }
+
+        // Ficha técnica
+        setElemText('detalle-tramite-cliente', t.cliente_nombre || 'Sin contratante');
+        if (t.poliza_numero) {
+            setElemText('detalle-tramite-poliza', `${t.poliza_numero}${t.aseguradora ? ' (' + t.aseguradora + ')' : ''}`);
+        } else {
+            setElemText('detalle-tramite-poliza', 'Sin póliza específica');
+        }
+        setElemText('detalle-tramite-tipo', t.tipo_tramite || 'Trámite');
+        setElemText('detalle-tramite-prioridad', t.prioridad || 'Media');
+        setElemText('detalle-tramite-autor', t.creador_nombre || 'Colaborador');
+        setElemText('detalle-tramite-fecha-limite', t.fecha_limite ? formatFechaVisual(t.fecha_limite) : 'No definida');
+
+        // Descripción inicial
+        const descWrapper = document.getElementById('detalle-tramite-desc-wrapper');
+        const descEl = document.getElementById('detalle-tramite-descripcion');
+        if (t.descripcion && t.descripcion.trim()) {
+            if (descWrapper) descWrapper.style.display = 'block';
+            if (descEl) descEl.textContent = t.descripcion;
+        } else {
+            if (descWrapper) descWrapper.style.display = 'none';
+        }
+
+        // Contador de notas
+        const countLabel = comentarios.length === 1 ? '1 nota registrada' : `${comentarios.length} notas registradas`;
+        setElemText('detalle-tramite-count-comentarios', countLabel);
+
+        // Renderizar lista de comentarios
+        renderComentariosTimeline(comentarios);
+
+        // Configurar form de nuevo comentario
+        const inputHiddenId = document.getElementById('detalle-tramite-id');
+        if (inputHiddenId) inputHiddenId.value = t.id;
+
+        const inputNuevoComentario = document.getElementById('tramite-nuevo-comentario');
+        if (inputNuevoComentario) inputNuevoComentario.value = '';
+
+        openModal('modal-detalle-tramite');
+    } catch (err) {
+        console.error('Error al abrir detalle:', err);
+        showToast('Error de conexión al cargar el trámite.', 'error');
+    }
+}
+
+function renderComentariosTimeline(comentarios) {
+    const container = document.getElementById('tramite-comentarios-lista');
+    if (!container) return;
+
+    if (!comentarios || comentarios.length === 0) {
+        container.innerHTML = '<div class="no-comments-msg">Aún no hay comentarios en este trámite. Puedes escribir la primera actualización abajo.</div>';
+        return;
+    }
+
+    const html = comentarios.map(c => {
+        const safeAutor = escapeHtml(c.autor_nombre || 'Colaborador');
+        const safeTexto = escapeHtml(c.comentario || '');
+        const safeFecha = formatFechaHoraVisual(c.created_at);
+        const isStatusChange = safeTexto.startsWith('Estado cambiado de');
+
+        return `
+            <div class="comment-bubble ${isStatusChange ? 'is-status-change' : ''}">
+                <div class="comment-top">
+                    <span class="comment-author-name">${safeAutor}</span>
+                    <span class="comment-time">${safeFecha}</span>
+                </div>
+                <div class="comment-body">${safeTexto}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+    // Auto-scroll al final del timeline
+    container.scrollTop = container.scrollHeight;
+}
+
+function cambiarEstadoDesdeDetalle(nuevoEstado) {
+    if (!_tramiteActualId) return;
+    const est = (nuevoEstado || '').toLowerCase();
+    const cleanEstado = (est === 'en proceso' || est === 'proceso') ? 'proceso' : est;
+    cambiarEstadoTramite(_tramiteActualId, cleanEstado);
+}
+
+async function handleAgregarComentarioTramite(e) {
+    if (e) e.preventDefault();
+    const id = document.getElementById('detalle-tramite-id')?.value || _tramiteActualId;
+    const input = document.getElementById('tramite-nuevo-comentario');
+    const comentario = input ? input.value.trim() : '';
+
+    if (!id || !comentario) return;
+
+    const btn = document.getElementById('btn-add-comentario');
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await fetch('api.php?action=add_tramite_comentario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tramite_id: id, comentario })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast('Comentario agregado con éxito.', 'success');
+            if (input) input.value = '';
+
+            // Refrescar modal y kanban
+            await abrirDetalleTramite(id);
+            loadTramites();
+        } else {
+            showToast(result.message || 'No se pudo guardar el comentario.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al agregar comentario:', err);
+        showToast('Error de conexión al guardar comentario.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function asegurarCatalogosParaTramites() {
+    // Si no tenemos clientes en cache, cargarlos
+    if (!AppState.clientes || AppState.clientes.length === 0) {
+        try {
+            const res = await fetch('api.php?action=get_clientes');
+            const data = await res.json();
+            if (data.success) AppState.clientes = data.clientes || [];
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // Si no tenemos pólizas en cache, cargarlas
+    if (!AppState.polizas || AppState.polizas.length === 0) {
+        try {
+            const res = await fetch('api.php?action=get_polizas');
+            const data = await res.json();
+            if (data.success) AppState.polizas = data.polizas || [];
+        } catch (e) {
+            console.error(e);
+        }
+    }
+}
+
+async function openModalNuevoTramite(clienteId = null, polizaId = null) {
+    await asegurarCatalogosParaTramites();
+
+    const form = document.getElementById('form-tramite');
+    if (form) form.reset();
+
+    document.getElementById('tramite-id').value = '';
+    setElemText('modal-tramite-title', 'Registrar Nuevo Trámite');
+
+    // Poblar clientes en el select
+    const selectCliente = document.getElementById('tramite-cliente-id');
+    if (selectCliente) {
+        selectCliente.innerHTML = '<option value="">-- Seleccionar Contratante --</option>' +
+            (AppState.clientes || []).map(c => `
+                <option value="${c.id}">${escapeHtml(c.nombre)}</option>
+            `).join('');
+
+        if (clienteId) {
+            selectCliente.value = clienteId;
+        }
+    }
+
+    // Poblar pólizas asociadas
+    poblarPolizasParaTramite(clienteId, polizaId);
+
+    openModal('modal-tramite');
+}
+
+function onTramiteClienteChange() {
+    const selectCliente = document.getElementById('tramite-cliente-id');
+    const clienteId = selectCliente ? selectCliente.value : null;
+    poblarPolizasParaTramite(clienteId);
+}
+
+function poblarPolizasParaTramite(clienteId = null, polizaSeleccionada = null) {
+    const selectPoliza = document.getElementById('tramite-poliza-id');
+    if (!selectPoliza) return;
+
+    let polizas = AppState.polizas || [];
+    if (clienteId) {
+        polizas = polizas.filter(p => String(p.cliente_id) === String(clienteId));
+    }
+
+    let options = '<option value="">(Sin póliza específica / En trámite general)</option>';
+    polizas.forEach(p => {
+        const num = escapeHtml(p.numero_poliza || 'S/N');
+        const aseg = escapeHtml(p.aseguradora || '');
+        const ramo = escapeHtml(p.ramo || '');
+        options += `<option value="${p.id}">${num} - ${aseg} (${ramo})</option>`;
+    });
+
+    selectPoliza.innerHTML = options;
+    if (polizaSeleccionada) {
+        selectPoliza.value = polizaSeleccionada;
+    }
+}
+
+async function openModalEditarTramite(id) {
+    await asegurarCatalogosParaTramites();
+
+    try {
+        const res = await fetch(`api.php?action=get_tramite&id=${id}`);
+        const data = await res.json();
+
+        if (!data.success || !data.tramite) {
+            showToast('No se encontró el trámite a editar.', 'error');
+            return;
+        }
+
+        const t = data.tramite;
+
+        // Poblar clientes
+        const selectCliente = document.getElementById('tramite-cliente-id');
+        if (selectCliente) {
+            selectCliente.innerHTML = '<option value="">-- Seleccionar Contratante --</option>' +
+                (AppState.clientes || []).map(c => `
+                    <option value="${c.id}">${escapeHtml(c.nombre)}</option>
+                `).join('');
+            selectCliente.value = t.cliente_id || '';
+        }
+
+        // Poblar pólizas
+        poblarPolizasParaTramite(t.cliente_id, t.poliza_id);
+
+        // Llenar campos
+        document.getElementById('tramite-id').value = t.id;
+        document.getElementById('tramite-tipo').value = t.tipo_tramite || 'Endoso';
+        document.getElementById('tramite-prioridad').value = t.prioridad || 'Media';
+        document.getElementById('tramite-titulo').value = t.titulo || '';
+        document.getElementById('tramite-estado').value = t.estado || 'Pendiente';
+        document.getElementById('tramite-fecha-limite').value = t.fecha_limite ? t.fecha_limite.substring(0, 10) : '';
+        document.getElementById('tramite-descripcion').value = t.descripcion || '';
+
+        setElemText('modal-tramite-title', 'Editar Trámite');
+        openModal('modal-tramite');
+    } catch (err) {
+        console.error('Error al abrir editor de trámite:', err);
+        showToast('Error de conexión al cargar trámite.', 'error');
+    }
+}
+
+function editarTramiteActual() {
+    if (!_tramiteActualId) return;
+    closeModal('modal-detalle-tramite');
+    openModalEditarTramite(_tramiteActualId);
+}
+
+async function handleSaveTramite(e) {
+    if (e) e.preventDefault();
+
+    const form = document.getElementById('form-tramite');
+    if (!form) return;
+
+    const formData = new FormData(form);
+    const data = {
+        id: formData.get('id') || null,
+        cliente_id: formData.get('cliente_id'),
+        poliza_id: formData.get('poliza_id') || null,
+        tipo_tramite: formData.get('tipo_tramite'),
+        prioridad: formData.get('prioridad'),
+        titulo: formData.get('titulo'),
+        estado: formData.get('estado'),
+        fecha_limite: formData.get('fecha_limite') || null,
+        descripcion: formData.get('descripcion') || ''
+    };
+
+    if (!data.cliente_id) {
+        showToast('Por favor selecciona un contratante.', 'warning');
+        return;
+    }
+    if (!data.titulo || !data.titulo.trim()) {
+        showToast('Por favor ingresa el título o asunto del trámite.', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('btn-save-tramite');
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await fetch('api.php?action=save_tramite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            closeModal('modal-tramite');
+            showToast(result.message || 'Trámite guardado correctamente.', 'success');
+            await loadTramites();
+
+            // Si estábamos viendo el detalle de este trámite, refrescarlo
+            if (_tramiteActualId && String(_tramiteActualId) === String(data.id)) {
+                await abrirDetalleTramite(_tramiteActualId);
+            }
+        } else {
+            showToast(result.message || 'No se pudo guardar el trámite.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al guardar trámite:', err);
+        showToast('Error de conexión al guardar trámite.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function eliminarTramite(id, titulo = '') {
+    const label = titulo ? `el trámite "${titulo}"` : 'este trámite';
+    if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente ${label} y todos sus comentarios?`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch('api.php?action=delete_tramite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast(result.message || 'Trámite eliminado correctamente.', 'success');
+            closeModal('modal-detalle-tramite');
+            _tramiteActualId = null;
+            await loadTramites();
+        } else {
+            showToast(result.message || 'No se pudo eliminar el trámite.', 'error');
+        }
+    } catch (err) {
+        console.error('Error al eliminar trámite:', err);
+        showToast('Error de conexión al eliminar trámite.', 'error');
+    }
+}
+
+function eliminarTramiteActual() {
+    if (!_tramiteActualId) return;
+    eliminarTramite(_tramiteActualId);
+}
+
+function formatFechaVisual(fechaStr) {
+    if (!fechaStr) return '';
+    const parts = fechaStr.substring(0, 10).split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return fechaStr;
+}
+
+function formatFechaHoraVisual(fechaHoraStr) {
+    if (!fechaHoraStr) return '';
+    try {
+        const d = new Date(fechaHoraStr.replace(' ', 'T'));
+        if (isNaN(d.getTime())) return fechaHoraStr;
+        const dia = String(d.getDate()).padStart(2, '0');
+        const mes = String(d.getMonth() + 1).padStart(2, '0');
+        const anio = d.getFullYear();
+        let horas = d.getHours();
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        const ampm = horas >= 12 ? 'pm' : 'am';
+        horas = horas % 12;
+        horas = horas ? horas : 12;
+        return `${dia}/${mes}/${anio} ${horas}:${mins} ${ampm}`;
+    } catch (e) {
+        return fechaHoraStr;
     }
 }

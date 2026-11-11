@@ -157,15 +157,13 @@ try {
 
             if (data.success) {
             showToast(data.message || '¡Sesión iniciada con éxito!', 'success');
-            if (rememberMe) {
+            if (data.user) {
                 localStorage.setItem('nucleo_user', data.user.email);
-            } else {
-                localStorage.setItem('nucleo_user', data.user.email);
+                localStorage.setItem('nucleo_fullname', data.user.fullname || '');
             }
-
             setTimeout(() => {
                 window.location.href = 'dashboard.html';
-            }, 1000);
+            }, 800);
         } else {
             if (data.field) {
                 showFieldError(`login-${data.field}-error`, data.message);
@@ -180,7 +178,6 @@ try {
 }
 
 /**
-
  * @param {Event} e 
  */
 async function handleRegister(e) {
@@ -229,7 +226,6 @@ async function handleRegister(e) {
 
     if (!isValid) return;
 
-
     submitBtn.classList.add('loading');
     submitBtn.disabled = true;
 
@@ -250,14 +246,16 @@ async function handleRegister(e) {
         submitBtn.classList.remove('loading');
         submitBtn.disabled = false;
 
-if (data.success) {
-            showToast(data.message || 'Cuenta registrada. Por favor inicia sesión.', 'success');
-            
+        if (data.success) {
+            showToast(data.message || '¡Cuenta creada con éxito!', 'success');
+            if (data.user) {
+                localStorage.setItem('nucleo_user', data.user.email);
+                localStorage.setItem('nucleo_fullname', data.user.fullname || '');
+            }
             document.getElementById('register-form').reset();
-
             setTimeout(() => {
-                switchTab('login');
-            }, 1500);
+                window.location.href = 'dashboard.html';
+            }, 800);
         } else {
             if (data.field) {
                 showFieldError(`reg-${data.field}-error`, data.message);
